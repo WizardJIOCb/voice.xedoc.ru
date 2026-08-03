@@ -2,6 +2,7 @@ services:
   web:
     build:
       context: ../server
+      network: host
     env_file:
       - ../.env
     volumes:
@@ -9,4 +10,3 @@ services:
     ports:
       - "127.0.0.1:8610:8000"
     restart: unless-stopped
-
