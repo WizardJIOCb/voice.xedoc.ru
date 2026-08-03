@@ -41,8 +41,8 @@ HTTP = requests.Session()
 HTTP.headers["Authorization"] = f"Bearer {TOKEN_FILE.read_text(encoding='utf-8').strip()}"
 
 
-def request(method: str, path: str, **kwargs) -> requests.Response:
-    response = HTTP.request(method, SERVER + path, timeout=(20, 600), **kwargs)
+def request(method: str, path: str, *, timeout: tuple[int, int] = (20, 600), **kwargs) -> requests.Response:
+    response = HTTP.request(method, SERVER + path, timeout=timeout, **kwargs)
     if response.status_code >= 400:
         raise RuntimeError(f"{method} {path}: {response.status_code} {response.text[:400]}")
     return response
@@ -125,7 +125,10 @@ def execute(job: dict) -> None:
                 # Reopen the WAV for every attempt: a partially sent multipart
                 # stream cannot be reused after a connection interruption.
                 with output.open("rb") as file:
-                    request("POST", f"/api/worker/jobs/{job['id']}/complete", files={"audio": (output.name, file, "audio/wav")}, data={"sample_rate": rate, "duration_seconds": f"{duration:.3f}", "accented_text": accented})
+                    # requests has no separate write timeout; its connect value
+                    # also limits socket writes. A long F5 WAV needs more than
+                    # the 20 seconds appropriate for small polling requests.
+                    request("POST", f"/api/worker/jobs/{job['id']}/complete", timeout=(600, 600), files={"audio": (output.name, file, "audio/wav")}, data={"sample_rate": rate, "duration_seconds": f"{duration:.3f}", "accented_text": accented})
                 break
             except Exception:
                 if attempt == 2:
