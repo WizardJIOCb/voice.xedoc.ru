@@ -42,7 +42,7 @@ HTTP.headers["Authorization"] = f"Bearer {TOKEN_FILE.read_text(encoding='utf-8')
 
 
 def request(method: str, path: str, **kwargs) -> requests.Response:
-    response = HTTP.request(method, SERVER + path, timeout=(10, 180), **kwargs)
+    response = HTTP.request(method, SERVER + path, timeout=(20, 600), **kwargs)
     if response.status_code >= 400:
         raise RuntimeError(f"{method} {path}: {response.status_code} {response.text[:400]}")
     return response
@@ -120,8 +120,18 @@ def execute(job: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="voice-") as folder:
         output = Path(folder) / f"{job['id']}.wav"
         rate, duration = engine.make(accented, output)
-        with output.open("rb") as file:
-            request("POST", f"/api/worker/jobs/{job['id']}/complete", files={"audio": (output.name, file, "audio/wav")}, data={"sample_rate": rate, "duration_seconds": f"{duration:.3f}", "accented_text": accented})
+        for attempt in range(3):
+            try:
+                # Reopen the WAV for every attempt: a partially sent multipart
+                # stream cannot be reused after a connection interruption.
+                with output.open("rb") as file:
+                    request("POST", f"/api/worker/jobs/{job['id']}/complete", files={"audio": (output.name, file, "audio/wav")}, data={"sample_rate": rate, "duration_seconds": f"{duration:.3f}", "accented_text": accented})
+                break
+            except Exception:
+                if attempt == 2:
+                    raise
+                LOG.warning("Upload of %s failed; retrying (%s/3)", job["id"], attempt + 1)
+                time.sleep(3)
     LOG.info("Completed %s", job["id"])
 
 
@@ -150,4 +160,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -122,14 +122,16 @@ async def heartbeat(request: Request) -> dict:
 
 
 @app.post("/api/worker/jobs/next", dependencies=[Depends(auth)])
-async def next_job(request: Request) -> JSONResponse:
+async def next_job(request: Request) -> Response:
     worker_id = str((await request.json()).get("id", "windows-gpu"))[:100]
     with db() as conn:
         conn.execute("BEGIN IMMEDIATE")
         row = conn.execute("SELECT * FROM jobs WHERE status='queued' ORDER BY created_at LIMIT 1").fetchone()
         if not row:
             conn.commit()
-            return JSONResponse(status_code=204, content=None)
+            # HTTP 204 must not have a response body; JSONResponse would send
+            # one and corrupt the keep-alive connection used by the worker.
+            return Response(status_code=204)
         conn.execute("UPDATE jobs SET status='running', worker_id=?, updated_at=? WHERE id=?", (worker_id, stamp(), row["id"]))
         row = conn.execute("SELECT * FROM jobs WHERE id=?", (row["id"],)).fetchone()
         conn.commit()
@@ -154,7 +156,9 @@ async def complete(job_id: str, audio: UploadFile = File(...), sample_rate: int 
 @app.post("/api/worker/jobs/{job_id}/fail", dependencies=[Depends(auth)])
 def fail(job_id: str, payload: Failure) -> dict:
     with db() as conn:
-        conn.execute("UPDATE jobs SET status='failed', error=?, updated_at=? WHERE id=?", (payload.error, stamp(), job_id))
+        # The worker can lose the response after a successful upload. Do not
+        # overwrite an already completed job with that stale failure report.
+        conn.execute("UPDATE jobs SET status='failed', error=?, updated_at=? WHERE id=? AND status != 'complete'", (payload.error, stamp(), job_id))
         row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
     if not row:
         raise HTTPException(404, "Задание не найдено")
