@@ -35,13 +35,17 @@ def init() -> None:
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS jobs (
           id TEXT PRIMARY KEY, text TEXT NOT NULL, engine TEXT NOT NULL,
-          accent_mode TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL,
+          accent_mode TEXT NOT NULL, speed REAL NOT NULL DEFAULT 1.0,
+          status TEXT NOT NULL, created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL, worker_id TEXT, audio_file TEXT, sample_rate INTEGER,
           duration_seconds REAL, accented_text TEXT, error TEXT
         );
         CREATE INDEX IF NOT EXISTS job_status_created ON jobs(status, created_at);
         CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, last_seen TEXT NOT NULL, details TEXT NOT NULL);
         """)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
+        if "speed" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN speed REAL NOT NULL DEFAULT 1.0")
 
 
 @asynccontextmanager
@@ -59,6 +63,7 @@ class JobInput(BaseModel):
     text: str = Field(min_length=1, max_length=6000)
     engine: str = "f5"
     accent_mode: str = "auto"
+    speed: float = Field(default=1.0, ge=0.7, le=1.3)
 
 
 class Failure(BaseModel):
@@ -106,8 +111,10 @@ def create(payload: JobInput) -> dict:
         raise HTTPException(422, "Проверьте текст и параметры задания")
     job_id, created = uuid.uuid4().hex, stamp()
     with db() as conn:
-        conn.execute("INSERT INTO jobs VALUES (?, ?, ?, ?, 'queued', ?, ?, NULL, NULL, NULL, NULL, NULL, NULL)",
-                     (job_id, text, payload.engine, payload.accent_mode, created, created))
+        conn.execute("""
+            INSERT INTO jobs (id, text, engine, accent_mode, speed, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)
+        """, (job_id, text, payload.engine, payload.accent_mode, payload.speed, created, created))
         row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
     return serialize(row)
 

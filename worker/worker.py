@@ -65,7 +65,7 @@ class Accent:
 class F5:
     model = None
 
-    def make(self, text: str, output: Path) -> tuple[int, float]:
+    def make(self, text: str, output: Path, speed: float) -> tuple[int, float]:
         if self.model is None:
             from f5_tts.api import F5TTS
             checkpoint = MODELS / "f5" / "F5TTS_v1_Base_v2" / "model_last_inference.safetensors"
@@ -78,14 +78,14 @@ class F5:
         ref_text = (ROOT / "worker" / "reference_text.txt").read_text(encoding="utf-8").strip()
         if not ref.exists():
             raise RuntimeError("Reference WAV is unavailable")
-        wave, rate, _ = self.model.infer(ref_file=str(ref), ref_text=ref_text, gen_text=text, nfe_step=32, cfg_strength=2.0, sway_sampling_coef=-1.0, speed=1.0, file_wave=str(output), seed=20260803)
+        wave, rate, _ = self.model.infer(ref_file=str(ref), ref_text=ref_text, gen_text=text, nfe_step=32, cfg_strength=2.0, sway_sampling_coef=-1.0, speed=speed, file_wave=str(output), seed=20260803)
         return rate, len(np.asarray(wave)) / rate
 
 
 class Silero:
     model = None
 
-    def make(self, text: str, output: Path) -> tuple[int, float]:
+    def make(self, text: str, output: Path, speed: float) -> tuple[int, float]:
         if self.model is None:
             path = MODELS / "silero" / "v5_5_ru.pt"
             if not path.exists():
@@ -99,6 +99,9 @@ class Silero:
             audio = self.model.apply_tts(text=sentence, speaker="xenia", sample_rate=rate).detach().cpu().numpy().astype(np.float32)
             chunks.extend((audio, pause))
         wave = np.concatenate(chunks[:-1])
+        if speed != 1.0:
+            import librosa
+            wave = librosa.effects.time_stretch(wave, rate=speed)
         peak = float(np.max(np.abs(wave)))
         if peak:
             wave *= .92 / peak
@@ -119,7 +122,7 @@ def execute(job: dict) -> None:
     engine = f5 if job["engine"] == "f5" else silero
     with tempfile.TemporaryDirectory(prefix="voice-") as folder:
         output = Path(folder) / f"{job['id']}.wav"
-        rate, duration = engine.make(accented, output)
+        rate, duration = engine.make(accented, output, float(job.get("speed", 1.0)))
         for attempt in range(3):
             try:
                 # Reopen the WAV for every attempt: a partially sent multipart
