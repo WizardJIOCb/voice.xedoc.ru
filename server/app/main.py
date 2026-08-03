@@ -1,0 +1,161 @@
+from __future__ import annotations
+
+import os
+import shutil
+import sqlite3
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
+ROOT = Path(__file__).resolve().parent
+DATA = Path(os.getenv("VOICE_DATA_DIR", "/app/data"))
+DB, AUDIO = DATA / "voice.db", DATA / "audio"
+TOKEN = os.getenv("VOICE_WORKER_TOKEN", "")
+
+
+def stamp() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def db() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB, timeout=30)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init() -> None:
+    AUDIO.mkdir(parents=True, exist_ok=True)
+    with db() as conn:
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS jobs (
+          id TEXT PRIMARY KEY, text TEXT NOT NULL, engine TEXT NOT NULL,
+          accent_mode TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL, worker_id TEXT, audio_file TEXT, sample_rate INTEGER,
+          duration_seconds REAL, accented_text TEXT, error TEXT
+        );
+        CREATE INDEX IF NOT EXISTS job_status_created ON jobs(status, created_at);
+        CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, last_seen TEXT NOT NULL, details TEXT NOT NULL);
+        """)
+
+
+@asynccontextmanager
+async def life(_: FastAPI):
+    init()
+    yield
+
+
+app = FastAPI(title="voice.xedoc.ru", lifespan=life)
+app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
+app.mount("/audio", StaticFiles(directory=AUDIO), name="audio")
+
+
+class JobInput(BaseModel):
+    text: str = Field(min_length=1, max_length=6000)
+    engine: str = "f5"
+    accent_mode: str = "auto"
+
+
+class Failure(BaseModel):
+    error: str = Field(min_length=1, max_length=2000)
+
+
+def serialize(row: sqlite3.Row) -> dict:
+    value = dict(row)
+    if value.get("audio_file"):
+        value["audio_url"] = f"/audio/{value['audio_file']}"
+    return value
+
+
+def auth(authorization: str | None = Header(default=None)) -> None:
+    if not TOKEN:
+        raise HTTPException(503, "Worker token is not configured")
+    if authorization != f"Bearer {TOKEN}":
+        raise HTTPException(401, "Invalid worker token")
+
+
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    return FileResponse(ROOT / "static" / "index.html")
+
+
+@app.get("/api/health")
+def health() -> dict:
+    with db() as conn:
+        worker = conn.execute("SELECT * FROM workers ORDER BY last_seen DESC LIMIT 1").fetchone()
+        queued = conn.execute("SELECT COUNT(*) FROM jobs WHERE status='queued'").fetchone()[0]
+    return {"ok": True, "queued": queued, "worker": dict(worker) if worker else None}
+
+
+@app.get("/api/jobs")
+def jobs() -> list[dict]:
+    with db() as conn:
+        rows = conn.execute("SELECT * FROM jobs ORDER BY created_at DESC LIMIT 50").fetchall()
+    return [serialize(row) for row in rows]
+
+
+@app.post("/api/jobs", status_code=201)
+def create(payload: JobInput) -> dict:
+    text = payload.text.strip()
+    if not text or payload.engine not in {"f5", "silero"} or payload.accent_mode not in {"auto", "manual"}:
+        raise HTTPException(422, "Проверьте текст и параметры задания")
+    job_id, created = uuid.uuid4().hex, stamp()
+    with db() as conn:
+        conn.execute("INSERT INTO jobs VALUES (?, ?, ?, ?, 'queued', ?, ?, NULL, NULL, NULL, NULL, NULL, NULL)",
+                     (job_id, text, payload.engine, payload.accent_mode, created, created))
+        row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+    return serialize(row)
+
+
+@app.post("/api/worker/heartbeat", dependencies=[Depends(auth)])
+async def heartbeat(request: Request) -> dict:
+    body = await request.json()
+    worker_id, details = str(body.get("id", "windows-gpu"))[:100], str(body.get("details", ""))[:2000]
+    with db() as conn:
+        conn.execute("INSERT INTO workers VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen, details=excluded.details", (worker_id, stamp(), details))
+    return {"ok": True}
+
+
+@app.post("/api/worker/jobs/next", dependencies=[Depends(auth)])
+async def next_job(request: Request) -> JSONResponse:
+    worker_id = str((await request.json()).get("id", "windows-gpu"))[:100]
+    with db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute("SELECT * FROM jobs WHERE status='queued' ORDER BY created_at LIMIT 1").fetchone()
+        if not row:
+            conn.commit()
+            return JSONResponse(status_code=204, content=None)
+        conn.execute("UPDATE jobs SET status='running', worker_id=?, updated_at=? WHERE id=?", (worker_id, stamp(), row["id"]))
+        row = conn.execute("SELECT * FROM jobs WHERE id=?", (row["id"],)).fetchone()
+        conn.commit()
+    return JSONResponse(serialize(row))
+
+
+@app.post("/api/worker/jobs/{job_id}/complete", dependencies=[Depends(auth)])
+async def complete(job_id: str, audio: UploadFile = File(...), sample_rate: int = Form(...), duration_seconds: float = Form(...), accented_text: str = Form(default="")) -> dict:
+    path = AUDIO / f"{job_id}.wav"
+    with path.open("wb") as file:
+        shutil.copyfileobj(audio.file, file)
+    with db() as conn:
+        row = conn.execute("SELECT id FROM jobs WHERE id=?", (job_id,)).fetchone()
+        if not row:
+            path.unlink(missing_ok=True)
+            raise HTTPException(404, "Задание не найдено")
+        conn.execute("UPDATE jobs SET status='complete', audio_file=?, sample_rate=?, duration_seconds=?, accented_text=?, error=NULL, updated_at=? WHERE id=?", (path.name, sample_rate, duration_seconds, accented_text[:6000], stamp(), job_id))
+        row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+    return serialize(row)
+
+
+@app.post("/api/worker/jobs/{job_id}/fail", dependencies=[Depends(auth)])
+def fail(job_id: str, payload: Failure) -> dict:
+    with db() as conn:
+        conn.execute("UPDATE jobs SET status='failed', error=?, updated_at=? WHERE id=?", (payload.error, stamp(), job_id))
+        row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Задание не найдено")
+    return serialize(row)

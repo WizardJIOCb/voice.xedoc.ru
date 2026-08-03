@@ -1,0 +1,15 @@
+.env
+.runtime/
+data/voice.db
+data/audio/
+secrets/
+models/
+.venv*/
+__pycache__/
+*.py[cod]
+*.wav
+*.mp3
+*.pt
+*.onnx
+*.safetensors
+

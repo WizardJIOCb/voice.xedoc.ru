@@ -1,0 +1,8 @@
+silero-stress==1.4.0
+ruaccent @ git+https://github.com/Den4ikAI/ruaccent.git@3ac0ad5f6508f6c1a4a604220042232c70a7baf9
+torch==2.6.0
+transformers==4.46.3
+huggingface-hub==0.36.0
+onnxruntime==1.20.1
+numpy==1.26.4
+python-crfsuite==0.9.12
