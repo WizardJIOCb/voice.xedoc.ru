@@ -8,6 +8,7 @@ services:
     volumes:
       - ../data:/app/data
     # На Linux-сервере это обходит нестабильный docker-proxy и оставляет
-    # приложение доступным только через локальный Nginx на порту 8000.
+    # приложение доступным только через локальный Nginx на порту 8610.
     network_mode: host
+    command: uvicorn app.main:app --host 127.0.0.1 --port 8610 --proxy-headers
     restart: unless-stopped
