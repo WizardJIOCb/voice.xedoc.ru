@@ -1,6 +1,37 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Voice</title><link rel="stylesheet" href="/static/styles.css"></head>
-<body><main><header><div><p class="eyebrow">VOICE.XEDOC.RU</p><h1>Озвучка русских текстов</h1><p>Очередь хранится на сервере, генерация — на локальной RTX 4070 Ti.</p></div><span id="worker">Проверяю worker…</span></header>
-<section><form id="form"><label>Текст<textarea id="text" maxlength="6000" required placeholder="Вставьте фрагмент книги…"></textarea></label><div class="controls"><label>Движок<select id="engine"><option value="f5">F5 Russian v2 · выразительный</option><option value="silero">Silero v5.5 · быстрый CPU</option></select></label><label>Ударения<select id="accent"><option value="auto">Авто · RUAccent</option><option value="manual">Уже размечены +</option></select></label><button>Поставить в очередь</button></div><p class="hint">Ручная разметка: <code>зам+ок</code>.</p></form></section>
-<section><div class="head"><h2>Последние задания</h2><button id="refresh" class="quiet" type="button">Обновить</button></div><div id="jobs"></div></section></main><script src="/static/app.js"></script></body></html>
-
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Voice</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">VOICE.XEDOC.RU</p>
+        <h1>Озвучка русских текстов</h1>
+        <p>Очередь хранится на сервере, генерация — на локальной RTX 4070 Ti.</p>
+      </div>
+      <span id="worker">Проверяю worker…</span>
+    </header>
+    <section>
+      <form id="form">
+        <label>Текст<textarea id="text" maxlength="6000" required placeholder="Вставьте фрагмент книги…"></textarea></label>
+        <div class="controls">
+          <label>Движок<select id="engine"><option value="f5">F5 Russian v2 · выразительный</option><option value="silero">Silero v5.5 · быстрый CPU</option></select></label>
+          <label>Ударения<select id="accent"><option value="auto">Авто · RUAccent</option><option value="manual">Уже размечены +</option></select></label>
+          <button>Поставить в очередь</button>
+        </div>
+        <p class="hint">Ручная разметка: <code>зам+ок</code>.</p>
+      </form>
+    </section>
+    <section>
+      <div class="head"><h2>Последние задания</h2><button id="refresh" class="quiet" type="button">Обновить</button></div>
+      <div id="jobs"></div>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
