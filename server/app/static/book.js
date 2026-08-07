@@ -6,6 +6,22 @@ const voiceStatus = document.querySelector('#voice-status');
 const audioResult = document.querySelector('#audio-result');
 const accentEditor = document.querySelector('#accent-editor');
 const markedText = document.querySelector('#marked-text');
+const MAX_TTS_TEXT = 6000;
+
+async function apiError(response, fallback) {
+  let body;
+  try { body = await response.json(); } catch { return fallback; }
+  const detail = body?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const textError = detail.find(item => item?.loc?.includes?.('text')) || detail[0];
+    if (textError?.type === 'string_too_long') {
+      return `Текст слишком длинный: максимум ${MAX_TTS_TEXT.toLocaleString('ru-RU')} символов.`;
+    }
+    if (typeof textError?.msg === 'string') return textError.msg;
+  }
+  return fallback;
+}
 
 async function copyShareLink(job, button) {
   const url = `${location.origin}/share/${job.id}`;
@@ -36,7 +52,7 @@ briefForm.addEventListener('submit', async event => {
     const response = await fetch('/api/book/generate', {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(brief())
     });
-    if (!response.ok) throw new Error((await response.json()).detail || 'Не удалось создать текст');
+    if (!response.ok) throw new Error(await apiError(response, 'Не удалось создать текст'));
     const result = await response.json();
     draft.value = result.text;
     provider.textContent = result.provider === 'remote' ? 'Текст создан AI‑моделью' : 'Структурный черновик — отредактируйте его перед озвучкой';
@@ -84,6 +100,10 @@ async function loadLatestMarked() {
 document.querySelector('#voice').addEventListener('click', async () => {
   const text = draft.value.trim();
   if (!text) { voiceStatus.textContent = 'Сначала создайте или вставьте текст новеллы'; return; }
+  if (text.length > MAX_TTS_TEXT) {
+    voiceStatus.textContent = `Текст слишком длинный: максимум ${MAX_TTS_TEXT.toLocaleString('ru-RU')} символов. Сократите его и попробуйте снова.`;
+    return;
+  }
   const button = document.querySelector('#voice');
   button.disabled = true;
   voiceStatus.textContent = 'Добавляю в очередь…';
@@ -92,7 +112,7 @@ document.querySelector('#voice').addEventListener('click', async () => {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({text, engine: 'f5', accent_mode: 'auto', speed: Number(document.querySelector('#speed').value)})
     });
-    if (!response.ok) throw new Error((await response.json()).detail || 'Не удалось поставить задание');
+    if (!response.ok) throw new Error(await apiError(response, 'Не удалось поставить задание'));
     poll((await response.json()).id);
   } catch (error) {
     voiceStatus.textContent = error.message;
@@ -104,6 +124,10 @@ document.querySelector('#voice').addEventListener('click', async () => {
 document.querySelector('#revoice').addEventListener('click', async () => {
   const text = markedText.value.trim();
   if (!text) return;
+  if (text.length > MAX_TTS_TEXT) {
+    voiceStatus.textContent = `Текст слишком длинный: максимум ${MAX_TTS_TEXT.toLocaleString('ru-RU')} символов. Сократите его и попробуйте снова.`;
+    return;
+  }
   const button = document.querySelector('#revoice');
   button.disabled = true;
   voiceStatus.textContent = 'Добавляю исправленную версию в очередь…';
@@ -112,7 +136,7 @@ document.querySelector('#revoice').addEventListener('click', async () => {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({text, engine: 'f5', accent_mode: 'manual', speed: Number(document.querySelector('#speed').value)})
     });
-    if (!response.ok) throw new Error((await response.json()).detail || 'Не удалось поставить задание');
+    if (!response.ok) throw new Error(await apiError(response, 'Не удалось поставить задание'));
     poll((await response.json()).id);
   } catch (error) {
     voiceStatus.textContent = error.message;

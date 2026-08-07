@@ -1,6 +1,20 @@
 const jobs = document.querySelector('#jobs');
 const worker = document.querySelector('#worker');
 const form = document.querySelector('#form');
+const MAX_TTS_TEXT = 6000;
+
+async function apiError(response, fallback) {
+  let body;
+  try { body = await response.json(); } catch { return fallback; }
+  const detail = body?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const textError = detail.find(item => item?.loc?.includes?.('text')) || detail[0];
+    if (textError?.type === 'string_too_long') return `Текст слишком длинный: максимум ${MAX_TTS_TEXT.toLocaleString('ru-RU')} символов.`;
+    if (typeof textError?.msg === 'string') return textError.msg;
+  }
+  return fallback;
+}
 
 async function copyShareLink(job, button) {
   const url = `${location.origin}/share/${job.id}`;
@@ -36,7 +50,7 @@ function card(job) {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({text: marked.trim(), engine: job.engine, accent_mode: 'manual', speed: Number(job.speed ?? 1)})
       });
-      if (!response.ok) throw new Error((await response.json()).detail || 'Не удалось создать новую версию');
+      if (!response.ok) throw new Error(await apiError(response, 'Не удалось создать новую версию'));
       await refresh();
     } catch (error) {
       alert(error.message);
@@ -74,19 +88,24 @@ async function refresh() {
 form.addEventListener('submit', async event => {
   event.preventDefault();
   const button = form.querySelector('button');
+  const text = document.querySelector('#text').value.trim();
+  if (text.length > MAX_TTS_TEXT) {
+    alert(`Текст слишком длинный: максимум ${MAX_TTS_TEXT.toLocaleString('ru-RU')} символов. Сократите его и попробуйте снова.`);
+    return;
+  }
   button.disabled = true;
   try {
     const response = await fetch('/api/jobs', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        text: document.querySelector('#text').value,
+        text,
         engine: document.querySelector('#engine').value,
         accent_mode: document.querySelector('#accent').value,
         speed: Number(document.querySelector('#speed').value)
       })
     });
-    if (!response.ok) throw new Error((await response.json()).detail);
+    if (!response.ok) throw new Error(await apiError(response, 'Не удалось поставить задание'));
     form.reset();
     await refresh();
   } catch (error) {

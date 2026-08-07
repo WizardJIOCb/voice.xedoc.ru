@@ -34,7 +34,7 @@
 
     <section>
       <div class="head"><h2>Текст новеллы</h2><span id="provider" class="hint"></span></div>
-      <textarea id="draft" class="draft" placeholder="Здесь появится черновик. Его можно полностью отредактировать перед озвучкой."></textarea>
+      <textarea id="draft" class="draft" maxlength="6000" placeholder="Здесь появится черновик. Его можно полностью отредактировать перед озвучкой."></textarea>
       <div class="actions voice-actions">
         <label>Скорость<select id="speed"><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1" selected>1.0× · обычно</option><option value="1.1">1.1×</option><option value="1.2">1.2×</option></select></label>
         <button id="voice" type="button">Озвучить F5 Russian v2</button>
@@ -43,12 +43,12 @@
       <div id="audio-result"></div>
       <div id="accent-editor" class="accent-editor">
         <div class="head"><h2>Исправить ударения</h2><button id="load-marked" class="quiet" type="button">Загрузить последнюю F5‑версию</button></div>
-        <label>Ударения для повторной версии<textarea id="marked-text" class="draft" spellcheck="false" placeholder="Нажмите «Загрузить последнюю F5‑версию», затем поставьте + перед ударной гласной."></textarea></label>
+        <label>Ударения для повторной версии<textarea id="marked-text" class="draft" maxlength="6000" spellcheck="false" placeholder="Нажмите «Загрузить последнюю F5‑версию», затем поставьте + перед ударной гласной."></textarea></label>
         <p class="hint">Знак <code>+</code> ставится непосредственно перед ударной гласной: <code>термин+атор</code>, <code>войн+е</code>.</p>
         <button id="revoice" type="button">Переозвучить с правками</button>
       </div>
     </section>
   </main>
-  <script src="/static/book.js?v=share-v1"></script>
+  <script src="/static/book.js?v=error-v1"></script>
 </body>
 </html>
