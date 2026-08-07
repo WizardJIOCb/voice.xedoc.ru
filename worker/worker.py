@@ -69,6 +69,18 @@ def f5_reference(voice: str) -> tuple[Path, str]:
         reference.write_bytes(audio)
         text_path.write_text(metadata["reference_text"], encoding="utf-8")
         LOG.info("Cached custom F5 voice %s (%s)", voice, metadata["name"])
+    # Browser recordings often start/end with a second of silence. It weakens
+    # F5 conditioning, so keep a small natural margin and remove the rest.
+    audio, rate = sf.read(reference, dtype="float32")
+    amplitude = np.max(np.abs(audio), axis=1) if np.ndim(audio) == 2 else np.abs(audio)
+    active = np.flatnonzero(amplitude > 0.012)
+    if len(active):
+        start = max(0, active[0] - round(rate * 0.12))
+        end = min(len(audio), active[-1] + round(rate * 0.25))
+        trimmed = audio[start:end]
+        if len(trimmed) >= rate * 5 and len(trimmed) < len(audio):
+            sf.write(reference, trimmed, rate, subtype="PCM_16")
+            LOG.info("Trimmed silence from custom F5 voice %s", voice)
     return reference, text_path.read_text(encoding="utf-8").strip()
 
 
@@ -99,6 +111,10 @@ class F5:
             LOG.info("Loading F5 on %s", torch.cuda.get_device_name(0))
             self.model = F5TTS(model="F5TTS_v1_Base", ckpt_file=str(checkpoint), vocab_file=str(vocab), device="cuda", hf_cache_dir=str(MODELS / "hf-cache"))
         ref, ref_text = f5_reference(voice)
+        # The Russian F5 checkpoint expects stressed vowels in its reference
+        # transcription too. The built-in Xenia reference is already marked.
+        if voice != "xenia":
+            ref_text = accent.apply(ref_text)
         wave, rate, _ = self.model.infer(ref_file=str(ref), ref_text=ref_text, gen_text=text, nfe_step=32, cfg_strength=2.0, sway_sampling_coef=-1.0, speed=speed, file_wave=str(output), seed=20260803)
         return rate, len(np.asarray(wave)) / rate
 

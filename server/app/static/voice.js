@@ -31,7 +31,7 @@ function wavBlob(samples, sampleRate) {
 
 async function startRecording() {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('Браузер не поддерживает запись с микрофона');
-  stream = await navigator.mediaDevices.getUserMedia({audio: {channelCount: 1, echoCancellation: true, noiseSuppression: true}});
+  stream = await navigator.mediaDevices.getUserMedia({audio: {channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false}});
   audioContext = new AudioContext();
   await audioContext.resume();
   source = audioContext.createMediaStreamSource(stream);
