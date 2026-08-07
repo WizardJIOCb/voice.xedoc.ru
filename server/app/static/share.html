@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Аудиоистория · Voice</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div><p class="eyebrow">VOICE.XEDOC.RU</p><h1>Аудиоистория</h1><p id="meta">Загружаю результат…</p></div>
+      <a class="quiet link-button" href="/book">Создать свою</a>
+    </header>
+    <section id="result" hidden>
+      <audio id="audio" controls preload="metadata"></audio>
+      <p id="text" class="shared-text"></p>
+      <div class="actions"><a id="fork" class="link-button" href="/book">Создать свою версию</a><button id="copy" class="quiet" type="button">Копировать ссылку</button></div>
+    </section>
+    <section id="missing" hidden><p class="empty">Эта ссылка не ведёт к готовой озвучке.</p></section>
+  </main>
+  <script src="/static/share.js?v=1"></script>
+</body>
+</html>

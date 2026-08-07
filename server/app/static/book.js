@@ -7,6 +7,17 @@ const audioResult = document.querySelector('#audio-result');
 const accentEditor = document.querySelector('#accent-editor');
 const markedText = document.querySelector('#marked-text');
 
+async function copyShareLink(job, button) {
+  const url = `${location.origin}/share/${job.id}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    button.textContent = 'Ссылка скопирована';
+    setTimeout(() => { button.textContent = 'Поделиться результатом'; }, 1800);
+  } catch {
+    window.prompt('Скопируйте ссылку:', url);
+  }
+}
+
 const brief = () => ({
   premise: document.querySelector('#premise').value.trim(),
   genre: document.querySelector('#genre').value,
@@ -53,7 +64,12 @@ async function poll(jobId) {
   const audio = document.createElement('audio');
   audio.controls = true;
   audio.src = job.audio_url;
-  audioResult.replaceChildren(audio);
+  const share = document.createElement('button');
+  share.type = 'button';
+  share.className = 'quiet share';
+  share.textContent = 'Поделиться результатом';
+  share.onclick = event => copyShareLink(job, event.currentTarget);
+  audioResult.replaceChildren(audio, share);
   markedText.value = job.accented_text || job.text;
 }
 
@@ -116,3 +132,13 @@ document.querySelector('#load-marked').addEventListener('click', async () => {
     button.disabled = false;
   }
 });
+
+const sourceId = new URLSearchParams(location.search).get('from');
+if (sourceId) fetch(`/api/jobs/${encodeURIComponent(sourceId)}`).then(async response => {
+  if (!response.ok) throw new Error();
+  return response.json();
+}).then(job => {
+  draft.value = job.text || '';
+  document.querySelector('#speed').value = String(job.speed ?? 1);
+  provider.textContent = 'Загружена чужая версия — измените текст и создайте свою';
+}).catch(() => { provider.textContent = 'Не удалось загрузить исходную версию'; });

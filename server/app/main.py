@@ -150,6 +150,11 @@ def book() -> FileResponse:
     return FileResponse(ROOT / "static" / "book.html")
 
 
+@app.get("/share/{job_id}", include_in_schema=False)
+def share(job_id: str) -> FileResponse:
+    return FileResponse(ROOT / "static" / "share.html")
+
+
 @app.post("/api/book/generate")
 def generate_book(brief: BookBrief) -> dict:
     text = remote_book_draft(brief)
@@ -170,6 +175,15 @@ def jobs() -> list[dict]:
     with db() as conn:
         rows = conn.execute("SELECT * FROM jobs ORDER BY created_at DESC LIMIT 50").fetchall()
     return [serialize(row) for row in rows]
+
+
+@app.get("/api/jobs/{job_id}")
+def job(job_id: str) -> dict:
+    with db() as conn:
+        row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Задание не найдено")
+    return serialize(row)
 
 
 @app.post("/api/jobs", status_code=201)
