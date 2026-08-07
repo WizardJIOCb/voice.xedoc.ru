@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import os
+import json
 import shutil
 import sqlite3
+import urllib.error
+import urllib.request
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -70,6 +73,59 @@ class Failure(BaseModel):
     error: str = Field(min_length=1, max_length=2000)
 
 
+class BookBrief(BaseModel):
+    premise: str = Field(min_length=12, max_length=3000)
+    genre: str = Field(default="лирическая новелла", max_length=120)
+    mood: str = Field(default="атмосферный и тёплый", max_length=120)
+    hero: str = Field(default="безымянный рассказчик", max_length=240)
+    setting: str = Field(default="маленький город поздней осенью", max_length=240)
+    length: int = Field(default=4500, ge=2000, le=6000)
+
+
+def local_book_draft(brief: BookBrief) -> str:
+    """Useful editable fallback when no text model is configured."""
+    title = brief.premise.split(".", 1)[0].strip()[:70].capitalize()
+    paragraphs = [
+        f"{title}\n\nВ {brief.setting} {brief.hero} долго откладывал одно простое решение. {brief.premise.strip()}",
+        f"Вечер складывался из тихих деталей: влажного света в окнах, редких шагов и запаха дождя. Всё вокруг казалось привычным, но в этой привычности уже жило ожидание перемены.",
+        f"{brief.hero.capitalize()} заметил знак почти случайно. Он не обещал ответа, зато заставил остановиться и впервые честно назвать то, от чего раньше удавалось отвернуться.",
+        f"Навстречу вышел человек, с которым не нужно было объяснять каждое слово. Их короткий разговор оказался важнее длинных признаний: в нём нашлось место и сомнению, и надежде.",
+        f"К полуночи выбор перестал быть отвлечённой мыслью. Он стал дорогой, на которую можно было ступить прямо сейчас, не дожидаясь идеального момента.",
+        f"Утром {brief.hero} увидел {brief.setting} иначе. Ничто не изменилось мгновенно, но теперь у каждого шага появилось направление. Так началась история, которую ещё предстояло прожить."
+    ]
+    # A longer requested draft receives a second, editable story beat.
+    if brief.length >= 1500:
+        paragraphs.insert(4, "Ночь не торопила событий. Она дала времени развернуться, вспомнить забытое и понять, что смелость редко бывает громкой. Иногда она похожа на письмо, которое наконец решаются отправить.")
+    if brief.length >= 2300:
+        paragraphs.insert(5, "На рассвете стало ясно: прошлое не исчезает, но перестаёт командовать будущим. Остаётся только бережно принять его и выбрать следующий день своим.")
+    return "\n\n".join(paragraphs)
+
+
+def within_tts_limit(text: str) -> str:
+    if len(text) <= 6000:
+        return text
+    cutoff = max(text.rfind(mark, 0, 6000) for mark in (". ", "! ", "? ", "\n"))
+    return text[:cutoff + 1].strip() if cutoff > 4500 else text[:6000].rsplit(" ", 1)[0] + "."
+
+
+def remote_book_draft(brief: BookBrief) -> str | None:
+    endpoint, api_key, model = (os.getenv("BOOK_TEXT_API_URL", "").strip(), os.getenv("BOOK_TEXT_API_KEY", "").strip(), os.getenv("BOOK_TEXT_MODEL", "").strip())
+    if not (endpoint and api_key and model):
+        return None
+    prompt = f"""Напиши законченную русскую новеллу для аудиокниги объёмом около {brief.length} знаков, не больше 6000 знаков.
+Жанр: {brief.genre}. Настроение: {brief.mood}. Герой: {brief.hero}. Место и время: {brief.setting}.
+Завязка: {brief.premise}.
+Нужны ясная арка, живые детали, мягкий финал и литературный русский язык. Не добавляй пояснений, только заголовок и текст новеллы."""
+    payload = json.dumps({"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.85}).encode("utf-8")
+    request = urllib.request.Request(endpoint, data=payload, method="POST", headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=90) as response:
+            body = json.loads(response.read().decode("utf-8"))
+        return within_tts_limit(str(body["choices"][0]["message"]["content"]).strip())
+    except (urllib.error.URLError, KeyError, IndexError, ValueError):
+        return None
+
+
 def serialize(row: sqlite3.Row) -> dict:
     value = dict(row)
     if value.get("audio_file"):
@@ -87,6 +143,18 @@ def auth(authorization: str | None = Header(default=None)) -> None:
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(ROOT / "static" / "index.html")
+
+
+@app.get("/book", include_in_schema=False)
+def book() -> FileResponse:
+    return FileResponse(ROOT / "static" / "book.html")
+
+
+@app.post("/api/book/generate")
+def generate_book(brief: BookBrief) -> dict:
+    text = remote_book_draft(brief)
+    provider = "remote" if text else "template"
+    return {"text": text or within_tts_limit(local_book_draft(brief)), "provider": provider}
 
 
 @app.get("/api/health")

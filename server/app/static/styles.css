@@ -6,12 +6,16 @@ header{display:flex;justify-content:space-between;gap:30px;margin-bottom:35px}
 h1{font-size:clamp(2rem,6vw,3.6rem);line-height:1;margin:.2rem 0 .8rem;letter-spacing:-.05em}
 .eyebrow{font-size:.72rem;letter-spacing:.15em;color:var(--accent);font-weight:bold}
 #worker{height:max-content;padding:9px 13px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.84rem}
+.header-actions,.actions{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+.link-button{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 section{padding:24px;margin-bottom:22px;background:#1a202be9;border:1px solid var(--line);border-radius:18px}
 label{display:grid;gap:7px;color:var(--muted);font-size:.86rem}
 textarea,select{width:100%;background:#11161f;border:1px solid var(--line);border-radius:11px;color:var(--text);font:inherit}
 textarea{min-height:210px;margin:5px 0 12px;padding:14px;resize:vertical}
 select{padding:10px}
 .controls{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:14px;align-items:end}
+.book-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.wide{grid-column:span 2}.book-grid input{width:100%;padding:10px;background:#11161f;border:1px solid var(--line);border-radius:11px;color:var(--text);font:inherit}
 button{min-height:42px;padding:0 17px;background:var(--accent);border:0;border-radius:11px;color:#172000;font:inherit;font-weight:800;cursor:pointer}
 .quiet{min-height:33px;background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:600}
 .hint{color:var(--muted);font-size:.85rem;margin-bottom:0}
@@ -26,7 +30,8 @@ code{color:var(--accent)}
 .failed{color:#ff9292}
 .text,.accented{white-space:pre-wrap}
 .accented{font-size:.86rem;color:var(--muted)}
+.draft{min-height:360px;margin-bottom:16px}.voice-actions label{min-width:180px}.voice-actions select{margin-top:7px}#audio-result{margin-top:16px}
 audio{width:100%}
 .empty{color:var(--muted);text-align:center}
-@media(max-width:760px){.controls{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.controls,.book-grid{grid-template-columns:1fr 1fr}.wide{grid-column:span 2}}
 @media(max-width:650px){main{width:calc(100% - 22px);padding-top:32px}header{display:block}#worker{display:inline-block;margin-top:14px}.controls{grid-template-columns:1fr}}

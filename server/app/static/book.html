@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Небольшая новелла · Voice</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">BOOK STUDIO</p>
+        <h1>Новелла → аудио</h1>
+        <p>Опишите историю, отредактируйте текст и отправьте её на качественную F5‑озвучку.</p>
+      </div>
+      <a class="quiet link-button" href="/">Озвучка текста</a>
+    </header>
+
+    <section>
+      <form id="brief-form">
+        <div class="book-grid">
+          <label>Жанр<select id="genre"><option>Лирическая новелла</option><option>Мистическая история</option><option>Научная фантастика</option><option>Детективная миниатюра</option><option>Сказка для взрослых</option></select></label>
+          <label>Настроение<select id="mood"><option>Атмосферный и тёплый</option><option>Тревожный и загадочный</option><option>Светлый и вдохновляющий</option><option>Мрачный и кинематографичный</option></select></label>
+          <label>Объём<select id="length"><option value="2500">Короткая · ~2500 знаков</option><option value="4500" selected>Средняя · ~4500 знаков</option><option value="6000">Длинная · ~6000 знаков</option></select></label>
+          <label>Главный герой<input id="hero" value="безымянный рассказчик" maxlength="240"></label>
+          <label class="wide">Место и время<input id="setting" value="маленький город поздней осенью" maxlength="240"></label>
+        </div>
+        <label>Завязка<textarea id="premise" required minlength="12" maxlength="3000" placeholder="Например: герой находит письмо, которое сам написал десять лет назад, но никогда не помнит этого."></textarea></label>
+        <div class="actions"><button>Создать черновик</button><span id="generation-status" class="hint"></span></div>
+      </form>
+    </section>
+
+    <section>
+      <div class="head"><h2>Текст новеллы</h2><span id="provider" class="hint"></span></div>
+      <textarea id="draft" class="draft" placeholder="Здесь появится черновик. Его можно полностью отредактировать перед озвучкой."></textarea>
+      <div class="actions voice-actions">
+        <label>Скорость<select id="speed"><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1" selected>1.0× · обычно</option><option value="1.1">1.1×</option><option value="1.2">1.2×</option></select></label>
+        <button id="voice" type="button">Озвучить F5 Russian v2</button>
+        <span id="voice-status" class="hint"></span>
+      </div>
+      <div id="audio-result"></div>
+    </section>
+  </main>
+  <script src="/static/book.js"></script>
+</body>
+</html>
