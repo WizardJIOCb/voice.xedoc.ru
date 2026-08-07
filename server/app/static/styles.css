@@ -30,6 +30,7 @@ code{color:var(--accent)}
 .failed{color:#ff9292}
 .text,.accented{white-space:pre-wrap}
 .accented{font-size:.86rem;color:var(--muted)}
+.accent-fix{margin:0 0 12px}
 .draft{min-height:360px;margin-bottom:16px}.voice-actions label{min-width:180px}.voice-actions select{margin-top:7px}#audio-result{margin-top:16px}
 audio{width:100%}
 .empty{color:var(--muted);text-align:center}

@@ -10,10 +10,27 @@ function card(job) {
   const el = document.createElement('article');
   el.className = 'job';
   const speed = Number(job.speed ?? 1).toFixed(1);
-  el.innerHTML = `<div class="meta"><b class="badge ${job.status}">${job.status}</b><span>${job.engine === 'f5' ? 'F5 Russian v2' : 'Silero v5.5'}</span><span>${speed}×</span><time>${date(job.created_at)}</time></div><p class="text"></p>${job.accented_text ? '<p class="accented"></p>' : ''}${job.audio_url ? `<audio controls preload="none" src="${job.audio_url}"></audio>` : ''}${job.error ? '<p class="failed"></p>' : ''}`;
+  el.innerHTML = `<div class="meta"><b class="badge ${job.status}">${job.status}</b><span>${job.engine === 'f5' ? 'F5 Russian v2' : 'Silero v5.5'}</span><span>${speed}×</span><time>${date(job.created_at)}</time></div><p class="text"></p>${job.accented_text ? '<p class="accented"></p><button class="quiet accent-fix" type="button">Исправить ударения</button>' : ''}${job.audio_url ? `<audio controls preload="none" src="${job.audio_url}"></audio>` : ''}${job.error ? '<p class="failed"></p>' : ''}`;
   el.querySelector('.text').textContent = job.text;
   if (job.accented_text) el.querySelector('.accented').textContent = 'Ударения: ' + job.accented_text;
   if (job.error) el.querySelector('.failed').textContent = job.error;
+  if (job.accented_text) el.querySelector('.accent-fix').addEventListener('click', async () => {
+    const marked = window.prompt('Поставьте + непосредственно перед ударной гласной. Будет создана новая версия аудио.', job.accented_text);
+    if (!marked?.trim()) return;
+    const button = el.querySelector('.accent-fix');
+    button.disabled = true;
+    try {
+      const response = await fetch('/api/jobs', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text: marked.trim(), engine: job.engine, accent_mode: 'manual', speed: Number(job.speed ?? 1)})
+      });
+      if (!response.ok) throw new Error((await response.json()).detail || 'Не удалось создать новую версию');
+      await refresh();
+    } catch (error) {
+      alert(error.message);
+      button.disabled = false;
+    }
+  });
   return el;
 }
 
