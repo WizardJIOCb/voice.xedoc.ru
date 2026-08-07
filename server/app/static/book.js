@@ -55,7 +55,14 @@ async function poll(jobId) {
   audio.src = job.audio_url;
   audioResult.replaceChildren(audio);
   markedText.value = job.accented_text || job.text;
-  accentEditor.hidden = false;
+}
+
+async function loadLatestMarked() {
+  const response = await fetch('/api/jobs');
+  const job = (await response.json()).find(item => item.engine === 'f5' && item.status === 'complete' && item.accented_text);
+  if (!job) throw new Error('Готовая F5-версия с разметкой пока не найдена');
+  markedText.value = job.accented_text;
+  voiceStatus.textContent = 'Авторазметка загружена — отредактируйте + и переозвучьте';
 }
 
 document.querySelector('#voice').addEventListener('click', async () => {
@@ -91,6 +98,18 @@ document.querySelector('#revoice').addEventListener('click', async () => {
     });
     if (!response.ok) throw new Error((await response.json()).detail || 'Не удалось поставить задание');
     poll((await response.json()).id);
+  } catch (error) {
+    voiceStatus.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.querySelector('#load-marked').addEventListener('click', async () => {
+  const button = document.querySelector('#load-marked');
+  button.disabled = true;
+  try {
+    await loadLatestMarked();
   } catch (error) {
     voiceStatus.textContent = error.message;
   } finally {
