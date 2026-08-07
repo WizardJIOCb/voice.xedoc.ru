@@ -10,6 +10,7 @@ h1{font-size:clamp(2rem,6vw,3.6rem);line-height:1;margin:.2rem 0 .8rem;letter-sp
 .link-button{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 section{padding:24px;margin-bottom:22px;background:#1a202be9;border:1px solid var(--line);border-radius:18px}
 label{display:grid;gap:7px;color:var(--muted);font-size:.86rem}
+.consent{display:flex;align-items:center;gap:9px;margin:2px 0 12px}.consent input{width:16px;height:16px;accent-color:var(--accent)}
 textarea,select{width:100%;background:#11161f;border:1px solid var(--line);border-radius:11px;color:var(--text);font:inherit}
 textarea{min-height:210px;margin:5px 0 12px;padding:14px;resize:vertical}
 select{padding:10px}

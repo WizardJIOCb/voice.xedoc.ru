@@ -31,10 +31,23 @@
       </form>
     </section>
     <section>
+      <div class="head"><h2>Создать свой F5‑голос</h2><span class="hint">Появится в списке после сохранения</span></div>
+      <form id="voice-form">
+        <div class="book-grid">
+          <label>Название<input id="voice-name" name="name" required minlength="2" maxlength="80" placeholder="Например, Родион"></label>
+          <label class="wide">Эталонная запись WAV<input name="reference" type="file" accept="audio/wav,.wav" required></label>
+        </div>
+        <label>Точный текст записи<textarea name="reference_text" required minlength="10" maxlength="2000" placeholder="Напишите дословно всё, что произносится в WAV-файле."></textarea></label>
+        <label class="consent"><input name="consent" type="checkbox" required> У меня есть право использовать этот голос и запись.</label>
+        <div class="actions"><button>Сохранить F5‑голос</button><span id="voice-create-status" class="hint"></span></div>
+        <p class="hint">Лучше всего: 10–30 секунд чистой речи одного человека, без музыки, шума и длинных пауз. Принимается WAV до 10 МБ.</p>
+      </form>
+    </section>
+    <section>
       <div class="head"><h2>Последние задания</h2><button id="refresh" class="quiet" type="button">Обновить</button></div>
       <div id="jobs"></div>
     </section>
   </main>
-  <script src="/static/app.js?v=voices-v1"></script>
+  <script src="/static/app.js?v=custom-voices-v1"></script>
 </body>
 </html>

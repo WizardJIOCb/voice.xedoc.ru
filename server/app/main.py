@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+import io
 import json
 import shutil
 import sqlite3
 import urllib.error
 import urllib.request
 import uuid
+import wave
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,9 +20,10 @@ from pydantic import BaseModel, Field
 
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.getenv("VOICE_DATA_DIR", "/app/data"))
-DB, AUDIO = DATA / "voice.db", DATA / "audio"
+DB, AUDIO, VOICES = DATA / "voice.db", DATA / "audio", DATA / "voices"
 TOKEN = os.getenv("VOICE_WORKER_TOKEN", "")
 ENGINE_VOICES = {"f5": {"xenia"}, "silero": {"aidar", "baya", "kseniya", "eugene", "xenia"}}
+AUDIO.mkdir(parents=True, exist_ok=True)
 
 
 def stamp() -> str:
@@ -35,6 +38,7 @@ def db() -> sqlite3.Connection:
 
 def init() -> None:
     AUDIO.mkdir(parents=True, exist_ok=True)
+    VOICES.mkdir(parents=True, exist_ok=True)
     with db() as conn:
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS jobs (
@@ -46,6 +50,10 @@ def init() -> None:
         );
         CREATE INDEX IF NOT EXISTS job_status_created ON jobs(status, created_at);
         CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, last_seen TEXT NOT NULL, details TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS voices (
+          id TEXT PRIMARY KEY, name TEXT NOT NULL, reference_file TEXT NOT NULL,
+          reference_text TEXT NOT NULL, created_at TEXT NOT NULL
+        );
         """)
         columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
         if "speed" not in columns:
@@ -133,6 +141,11 @@ def remote_book_draft(brief: BookBrief) -> str | None:
 
 def serialize(row: sqlite3.Row) -> dict:
     value = dict(row)
+    if value.get("engine") == "f5" and value.get("voice") not in {None, "xenia"}:
+        with db() as conn:
+            voice = conn.execute("SELECT name FROM voices WHERE id=?", (value["voice"],)).fetchone()
+        if voice:
+            value["voice_name"] = voice["name"]
     if value.get("audio_file"):
         value["audio_url"] = f"/audio/{value['audio_file']}"
     return value
@@ -191,10 +204,66 @@ def job(job_id: str) -> dict:
     return serialize(row)
 
 
+@app.get("/api/voices")
+def voices() -> list[dict]:
+    with db() as conn:
+        rows = conn.execute("SELECT id, name, created_at FROM voices ORDER BY created_at DESC").fetchall()
+    return [dict(row) for row in rows]
+
+
+@app.get("/api/worker/voices/{voice_id}", dependencies=[Depends(auth)])
+def voice(voice_id: str) -> dict:
+    with db() as conn:
+        row = conn.execute("SELECT id, name, reference_text, created_at FROM voices WHERE id=?", (voice_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, "Голос не найден")
+    return dict(row)
+
+
+@app.get("/api/worker/voices/{voice_id}/reference", dependencies=[Depends(auth)])
+def voice_reference(voice_id: str) -> FileResponse:
+    with db() as conn:
+        row = conn.execute("SELECT reference_file FROM voices WHERE id=?", (voice_id,)).fetchone()
+    path = VOICES / row["reference_file"] if row else None
+    if not path or not path.is_file():
+        raise HTTPException(404, "Эталонная запись не найдена")
+    return FileResponse(path, media_type="audio/wav", filename=f"{voice_id}.wav")
+
+
+@app.post("/api/voices", status_code=201)
+async def create_voice(
+    name: str = Form(...), reference_text: str = Form(...), consent: bool = Form(False), reference: UploadFile = File(...)
+) -> dict:
+    name, reference_text = name.strip(), reference_text.strip()
+    if not consent:
+        raise HTTPException(422, "Подтвердите право использовать этот голос")
+    if not 2 <= len(name) <= 80 or not 10 <= len(reference_text) <= 2000:
+        raise HTTPException(422, "Укажите название голоса и точную расшифровку записи")
+    payload = await reference.read(10 * 1024 * 1024 + 1)
+    if len(payload) > 10 * 1024 * 1024:
+        raise HTTPException(413, "WAV-файл должен быть не больше 10 МБ")
+    try:
+        with wave.open(io.BytesIO(payload), "rb") as wav:
+            duration = wav.getnframes() / wav.getframerate()
+            if wav.getnchannels() not in {1, 2} or not 5 <= duration <= 60:
+                raise ValueError
+    except (wave.Error, ValueError, ZeroDivisionError):
+        raise HTTPException(422, "Нужен WAV длительностью от 5 до 60 секунд без музыки")
+    voice_id, created = uuid.uuid4().hex, stamp()
+    filename = f"{voice_id}.wav"
+    (VOICES / filename).write_bytes(payload)
+    with db() as conn:
+        conn.execute("INSERT INTO voices (id, name, reference_file, reference_text, created_at) VALUES (?, ?, ?, ?, ?)", (voice_id, name, filename, reference_text, created))
+    return {"id": voice_id, "name": name, "created_at": created}
+
+
 @app.post("/api/jobs", status_code=201)
 def create(payload: JobInput) -> dict:
     text = payload.text.strip()
-    if not text or payload.engine not in ENGINE_VOICES or payload.voice not in ENGINE_VOICES[payload.engine] or payload.accent_mode not in {"auto", "manual"}:
+    is_builtin_voice = payload.engine in ENGINE_VOICES and payload.voice in ENGINE_VOICES[payload.engine]
+    with db() as conn:
+        is_custom_f5_voice = payload.engine == "f5" and conn.execute("SELECT 1 FROM voices WHERE id=?", (payload.voice,)).fetchone()
+    if not text or payload.engine not in ENGINE_VOICES or not (is_builtin_voice or is_custom_f5_voice) or payload.accent_mode not in {"auto", "manual"}:
         raise HTTPException(422, "Проверьте текст и параметры задания")
     job_id, created = uuid.uuid4().hex, stamp()
     with db() as conn:

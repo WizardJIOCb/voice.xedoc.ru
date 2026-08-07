@@ -20,7 +20,7 @@ fetch(`/api/jobs/${encodeURIComponent(id)}`).then(async response => {
 }).then(job => {
   if (job.status !== 'complete' || !job.audio_url) throw new Error();
   document.title = `Аудиоистория · ${job.engine === 'f5' ? 'F5 Russian v2' : 'Silero'} · Voice`;
-  meta.textContent = `${job.engine === 'f5' ? 'F5 Russian v2' : 'Silero v5.5'} · ${voiceNames[job.voice] || job.voice || 'Ксения'} · ${Number(job.duration_seconds).toFixed(1)} с · ${Number(job.speed ?? 1).toFixed(1)}×`;
+  meta.textContent = `${job.engine === 'f5' ? 'F5 Russian v2' : 'Silero v5.5'} · ${job.voice_name || voiceNames[job.voice] || job.voice || 'Ксения'} · ${Number(job.duration_seconds).toFixed(1)} с · ${Number(job.speed ?? 1).toFixed(1)}×`;
   document.querySelector('#audio').src = job.audio_url;
   document.querySelector('#text').textContent = job.text;
   document.querySelector('#fork').href = `/book?from=${encodeURIComponent(job.id)}`;

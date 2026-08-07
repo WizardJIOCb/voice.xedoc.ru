@@ -10,6 +10,7 @@ const VOICES = {
     {value: 'xenia', label: 'Xenia'}
   ]
 };
+let customF5Voices = [];
 
 function voiceLabel(engine, voice) {
   return VOICES[engine]?.find(item => item.value === voice)?.label || voice || 'Ксения';
@@ -18,11 +19,21 @@ function voiceLabel(engine, voice) {
 function syncVoiceOptions() {
   const engine = document.querySelector('#engine').value;
   const select = document.querySelector('#voice');
-  select.replaceChildren(...VOICES[engine].map(item => new Option(item.label, item.value)));
+  const choices = engine === 'f5' ? [...VOICES.f5, ...customF5Voices] : VOICES[engine];
+  const previous = select.value;
+  select.replaceChildren(...choices.map(item => new Option(item.label, item.value)));
+  if (choices.some(item => item.value === previous)) select.value = previous;
 }
 
 document.querySelector('#engine').addEventListener('change', syncVoiceOptions);
 syncVoiceOptions();
+
+async function loadCustomVoices() {
+  const response = await fetch('/api/voices');
+  if (!response.ok) return;
+  customF5Voices = (await response.json()).map(voice => ({value: voice.id, label: `${voice.name} · ваш F5‑голос`}));
+  syncVoiceOptions();
+}
 
 async function apiError(response, fallback) {
   let body;
@@ -56,7 +67,7 @@ function card(job) {
   const el = document.createElement('article');
   el.className = 'job';
   const speed = Number(job.speed ?? 1).toFixed(1);
-  el.innerHTML = `<div class="meta"><b class="badge ${job.status}">${job.status}</b><span>${job.engine === 'f5' ? 'F5 Russian v2' : 'Silero v5.5'}</span><span>${voiceLabel(job.engine, job.voice)}</span><span>${speed}×</span><time>${date(job.created_at)}</time></div><p class="text"></p>${job.accented_text ? '<p class="accented"></p><button class="quiet accent-fix" type="button">Исправить ударения</button>' : ''}${job.audio_url ? `<audio controls preload="none" src="${job.audio_url}"></audio><button class="quiet share" type="button">Поделиться</button>` : ''}${job.error ? '<p class="failed"></p>' : ''}`;
+  el.innerHTML = `<div class="meta"><b class="badge ${job.status}">${job.status}</b><span>${job.engine === 'f5' ? 'F5 Russian v2' : 'Silero v5.5'}</span><span>${job.voice_name || voiceLabel(job.engine, job.voice)}</span><span>${speed}×</span><time>${date(job.created_at)}</time></div><p class="text"></p>${job.accented_text ? '<p class="accented"></p><button class="quiet accent-fix" type="button">Исправить ударения</button>' : ''}${job.audio_url ? `<audio controls preload="none" src="${job.audio_url}"></audio><button class="quiet share" type="button">Поделиться</button>` : ''}${job.error ? '<p class="failed"></p>' : ''}`;
   el.querySelector('.text').textContent = job.text;
   if (job.accented_text) el.querySelector('.accented').textContent = 'Ударения: ' + job.accented_text;
   if (job.error) el.querySelector('.failed').textContent = job.error;
@@ -129,6 +140,7 @@ form.addEventListener('submit', async event => {
     });
     if (!response.ok) throw new Error(await apiError(response, 'Не удалось поставить задание'));
     form.reset();
+    syncVoiceOptions();
     await refresh();
   } catch (error) {
     alert(error.message);
@@ -137,6 +149,31 @@ form.addEventListener('submit', async event => {
   }
 });
 
+document.querySelector('#voice-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const voiceForm = event.currentTarget;
+  const button = voiceForm.querySelector('button');
+  const status = document.querySelector('#voice-create-status');
+  button.disabled = true;
+  status.textContent = 'Загружаю эталонную запись…';
+  try {
+    const response = await fetch('/api/voices', {method: 'POST', body: new FormData(voiceForm)});
+    if (!response.ok) throw new Error(await apiError(response, 'Не удалось создать голос'));
+    const created = await response.json();
+    voiceForm.reset();
+    await loadCustomVoices();
+    document.querySelector('#engine').value = 'f5';
+    syncVoiceOptions();
+    document.querySelector('#voice').value = created.id;
+    status.textContent = `Голос «${created.name}» готов к озвучке`;
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 document.querySelector('#refresh').onclick = refresh;
+loadCustomVoices();
 refresh();
 setInterval(refresh, 5000);

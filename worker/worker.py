@@ -50,6 +50,28 @@ def request(method: str, path: str, *, timeout: tuple[int, int] = (20, 600), **k
     return response
 
 
+def f5_reference(voice: str) -> tuple[Path, str]:
+    """Get a built-in reference or cache a user-created voice from the server."""
+    if voice == "xenia":
+        reference = MODELS / "reference" / "xenia.wav"
+        text_path = ROOT / "worker" / "reference_text.txt"
+        if not reference.exists():
+            raise RuntimeError("Reference WAV is unavailable")
+        return reference, text_path.read_text(encoding="utf-8").strip()
+
+    folder = MODELS / "reference" / "custom"
+    reference = folder / f"{voice}.wav"
+    text_path = folder / f"{voice}.txt"
+    if not reference.exists() or not text_path.exists():
+        metadata = request("GET", f"/api/worker/voices/{voice}").json()
+        audio = request("GET", f"/api/worker/voices/{voice}/reference").content
+        folder.mkdir(parents=True, exist_ok=True)
+        reference.write_bytes(audio)
+        text_path.write_text(metadata["reference_text"], encoding="utf-8")
+        LOG.info("Cached custom F5 voice %s (%s)", voice, metadata["name"])
+    return reference, text_path.read_text(encoding="utf-8").strip()
+
+
 class Accent:
     model = None
 
@@ -76,13 +98,7 @@ class F5:
                 raise RuntimeError("F5 checkpoint or CUDA is unavailable")
             LOG.info("Loading F5 on %s", torch.cuda.get_device_name(0))
             self.model = F5TTS(model="F5TTS_v1_Base", ckpt_file=str(checkpoint), vocab_file=str(vocab), device="cuda", hf_cache_dir=str(MODELS / "hf-cache"))
-        ref = MODELS / "reference" / f"{voice}.wav"
-        text_path = ROOT / "worker" / f"reference_text_{voice}.txt"
-        if not text_path.exists():
-            text_path = ROOT / "worker" / "reference_text.txt"
-        ref_text = text_path.read_text(encoding="utf-8").strip()
-        if not ref.exists():
-            raise RuntimeError("Reference WAV is unavailable")
+        ref, ref_text = f5_reference(voice)
         wave, rate, _ = self.model.infer(ref_file=str(ref), ref_text=ref_text, gen_text=text, nfe_step=32, cfg_strength=2.0, sway_sampling_coef=-1.0, speed=speed, file_wave=str(output), seed=20260803)
         return rate, len(np.asarray(wave)) / rate
 

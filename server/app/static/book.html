@@ -37,7 +37,7 @@
       <textarea id="draft" class="draft" maxlength="100000" placeholder="Здесь появится черновик. Его можно полностью отредактировать перед озвучкой. Длинные тексты автоматически озвучиваются частями."></textarea>
       <div class="actions voice-actions">
         <label>Скорость<select id="speed"><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1" selected>1.0× · обычно</option><option value="1.1">1.1×</option><option value="1.2">1.2×</option></select></label>
-        <label>Голос<select id="voice-selection"><option value="f5:xenia">Ксения · F5 Russian v2 (лучшее качество)</option><optgroup label="Silero v5.5"><option value="silero:aidar">Айдар</option><option value="silero:baya">Бая</option><option value="silero:kseniya">Ксения</option><option value="silero:eugene">Евгений</option><option value="silero:xenia">Xenia</option></optgroup></select></label>
+        <label>Голос<select id="voice-selection"><optgroup id="f5-voices" label="F5 Russian v2"><option value="f5:xenia">Ксения · лучшее качество</option></optgroup><optgroup label="Silero v5.5"><option value="silero:aidar">Айдар</option><option value="silero:baya">Бая</option><option value="silero:kseniya">Ксения</option><option value="silero:eugene">Евгений</option><option value="silero:xenia">Xenia</option></optgroup></select></label>
         <button id="voice" type="button">Озвучить выбранным голосом</button>
         <span id="voice-status" class="hint"></span>
       </div>
@@ -50,6 +50,6 @@
       </div>
     </section>
   </main>
-  <script src="/static/book.js?v=voices-v1"></script>
+  <script src="/static/book.js?v=custom-voices-v1"></script>
 </body>
 </html>

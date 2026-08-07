@@ -14,6 +14,13 @@ function selectedVoice() {
   return {engine, voice};
 }
 
+async function loadCustomVoices() {
+  const response = await fetch('/api/voices');
+  if (!response.ok) return;
+  const group = document.querySelector('#f5-voices');
+  (await response.json()).forEach(voice => group.append(new Option(`${voice.name} · ваш F5‑голос`, `f5:${voice.id}`)));
+}
+
 async function apiError(response, fallback) {
   let body;
   try { body = await response.json(); } catch { return fallback; }
@@ -164,7 +171,9 @@ document.querySelector('#load-marked').addEventListener('click', async () => {
 });
 
 const sourceId = new URLSearchParams(location.search).get('from');
-if (sourceId) fetch(`/api/jobs/${encodeURIComponent(sourceId)}`).then(async response => {
+async function loadSource() {
+  if (!sourceId) return;
+  await fetch(`/api/jobs/${encodeURIComponent(sourceId)}`).then(async response => {
   if (!response.ok) throw new Error();
   return response.json();
 }).then(job => {
@@ -174,3 +183,6 @@ if (sourceId) fetch(`/api/jobs/${encodeURIComponent(sourceId)}`).then(async resp
   if ([...voiceSelection.options].some(option => option.value === voice)) voiceSelection.value = voice;
   provider.textContent = 'Загружена чужая версия — измените текст и создайте свою';
 }).catch(() => { provider.textContent = 'Не удалось загрузить исходную версию'; });
+}
+
+loadCustomVoices().then(loadSource).catch(loadSource);
