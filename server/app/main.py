@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = Path(os.getenv("VOICE_DATA_DIR", "/app/data"))
 DB, AUDIO = DATA / "voice.db", DATA / "audio"
 TOKEN = os.getenv("VOICE_WORKER_TOKEN", "")
+ENGINE_VOICES = {"f5": {"xenia"}, "silero": {"aidar", "baya", "kseniya", "eugene", "xenia"}}
 
 
 def stamp() -> str:
@@ -38,7 +39,7 @@ def init() -> None:
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS jobs (
           id TEXT PRIMARY KEY, text TEXT NOT NULL, engine TEXT NOT NULL,
-          accent_mode TEXT NOT NULL, speed REAL NOT NULL DEFAULT 1.0,
+          accent_mode TEXT NOT NULL, voice TEXT NOT NULL DEFAULT 'xenia', speed REAL NOT NULL DEFAULT 1.0,
           status TEXT NOT NULL, created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL, worker_id TEXT, audio_file TEXT, sample_rate INTEGER,
           duration_seconds REAL, accented_text TEXT, error TEXT
@@ -49,6 +50,8 @@ def init() -> None:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
         if "speed" not in columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN speed REAL NOT NULL DEFAULT 1.0")
+        if "voice" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN voice TEXT NOT NULL DEFAULT 'xenia'")
 
 
 @asynccontextmanager
@@ -66,6 +69,7 @@ class JobInput(BaseModel):
     # Long books are split into natural chunks by the local worker before F5.
     text: str = Field(min_length=1, max_length=100000)
     engine: str = "f5"
+    voice: str = "xenia"
     accent_mode: str = "auto"
     speed: float = Field(default=1.0, ge=0.7, le=1.3)
 
@@ -190,14 +194,14 @@ def job(job_id: str) -> dict:
 @app.post("/api/jobs", status_code=201)
 def create(payload: JobInput) -> dict:
     text = payload.text.strip()
-    if not text or payload.engine not in {"f5", "silero"} or payload.accent_mode not in {"auto", "manual"}:
+    if not text or payload.engine not in ENGINE_VOICES or payload.voice not in ENGINE_VOICES[payload.engine] or payload.accent_mode not in {"auto", "manual"}:
         raise HTTPException(422, "Проверьте текст и параметры задания")
     job_id, created = uuid.uuid4().hex, stamp()
     with db() as conn:
         conn.execute("""
-            INSERT INTO jobs (id, text, engine, accent_mode, speed, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)
-        """, (job_id, text, payload.engine, payload.accent_mode, payload.speed, created, created))
+            INSERT INTO jobs (id, text, engine, accent_mode, voice, speed, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)
+        """, (job_id, text, payload.engine, payload.accent_mode, payload.voice, payload.speed, created, created))
         row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
     return serialize(row)
 

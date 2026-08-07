@@ -13,7 +13,7 @@ label{display:grid;gap:7px;color:var(--muted);font-size:.86rem}
 textarea,select{width:100%;background:#11161f;border:1px solid var(--line);border-radius:11px;color:var(--text);font:inherit}
 textarea{min-height:210px;margin:5px 0 12px;padding:14px;resize:vertical}
 select{padding:10px}
-.controls{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:14px;align-items:end}
+.controls{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:14px;align-items:end}
 .book-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
 .wide{grid-column:span 2}.book-grid input{width:100%;padding:10px;background:#11161f;border:1px solid var(--line);border-radius:11px;color:var(--text);font:inherit}
 button{min-height:42px;padding:0 17px;background:var(--accent);border:0;border-radius:11px;color:#172000;font:inherit;font-weight:800;cursor:pointer}

@@ -7,6 +7,12 @@ const audioResult = document.querySelector('#audio-result');
 const accentEditor = document.querySelector('#accent-editor');
 const markedText = document.querySelector('#marked-text');
 const MAX_TTS_TEXT = 100000;
+const voiceSelection = document.querySelector('#voice-selection');
+
+function selectedVoice() {
+  const [engine, voice] = voiceSelection.value.split(':');
+  return {engine, voice};
+}
 
 async function apiError(response, fallback) {
   let body;
@@ -110,7 +116,7 @@ document.querySelector('#voice').addEventListener('click', async () => {
   try {
     const response = await fetch('/api/jobs', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({text, engine: 'f5', accent_mode: 'auto', speed: Number(document.querySelector('#speed').value)})
+      body: JSON.stringify({text, ...selectedVoice(), accent_mode: 'auto', speed: Number(document.querySelector('#speed').value)})
     });
     if (!response.ok) throw new Error(await apiError(response, 'Не удалось поставить задание'));
     poll((await response.json()).id);
@@ -134,7 +140,7 @@ document.querySelector('#revoice').addEventListener('click', async () => {
   try {
     const response = await fetch('/api/jobs', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({text, engine: 'f5', accent_mode: 'manual', speed: Number(document.querySelector('#speed').value)})
+      body: JSON.stringify({text, ...selectedVoice(), accent_mode: 'manual', speed: Number(document.querySelector('#speed').value)})
     });
     if (!response.ok) throw new Error(await apiError(response, 'Не удалось поставить задание'));
     poll((await response.json()).id);
@@ -164,5 +170,7 @@ if (sourceId) fetch(`/api/jobs/${encodeURIComponent(sourceId)}`).then(async resp
 }).then(job => {
   draft.value = job.text || '';
   document.querySelector('#speed').value = String(job.speed ?? 1);
+  const voice = `${job.engine}:${job.voice ?? 'xenia'}`;
+  if ([...voiceSelection.options].some(option => option.value === voice)) voiceSelection.value = voice;
   provider.textContent = 'Загружена чужая версия — измените текст и создайте свою';
 }).catch(() => { provider.textContent = 'Не удалось загрузить исходную версию'; });

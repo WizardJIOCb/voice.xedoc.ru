@@ -67,7 +67,7 @@ class Accent:
 class F5:
     model = None
 
-    def make(self, text: str, output: Path, speed: float) -> tuple[int, float]:
+    def make(self, text: str, output: Path, speed: float, voice: str = "xenia") -> tuple[int, float]:
         if self.model is None:
             from f5_tts.api import F5TTS
             checkpoint = MODELS / "f5" / "F5TTS_v1_Base_v2" / "model_last_inference.safetensors"
@@ -76,8 +76,11 @@ class F5:
                 raise RuntimeError("F5 checkpoint or CUDA is unavailable")
             LOG.info("Loading F5 on %s", torch.cuda.get_device_name(0))
             self.model = F5TTS(model="F5TTS_v1_Base", ckpt_file=str(checkpoint), vocab_file=str(vocab), device="cuda", hf_cache_dir=str(MODELS / "hf-cache"))
-        ref = MODELS / "reference" / "xenia.wav"
-        ref_text = (ROOT / "worker" / "reference_text.txt").read_text(encoding="utf-8").strip()
+        ref = MODELS / "reference" / f"{voice}.wav"
+        text_path = ROOT / "worker" / f"reference_text_{voice}.txt"
+        if not text_path.exists():
+            text_path = ROOT / "worker" / "reference_text.txt"
+        ref_text = text_path.read_text(encoding="utf-8").strip()
         if not ref.exists():
             raise RuntimeError("Reference WAV is unavailable")
         wave, rate, _ = self.model.infer(ref_file=str(ref), ref_text=ref_text, gen_text=text, nfe_step=32, cfg_strength=2.0, sway_sampling_coef=-1.0, speed=speed, file_wave=str(output), seed=20260803)
@@ -104,10 +107,10 @@ def split_tts_text(text: str, limit: int = MAX_TTS_CHUNK) -> list[str]:
     return chunks
 
 
-def make_book_audio(engine: F5 | "Silero", text: str, output: Path, speed: float) -> tuple[int, float]:
+def make_book_audio(engine: F5 | "Silero", text: str, output: Path, speed: float, voice: str) -> tuple[int, float]:
     parts = split_tts_text(text)
     if len(parts) == 1:
-        return engine.make(parts[0], output, speed)
+        return engine.make(parts[0], output, speed, voice)
 
     waves: list[np.ndarray] = []
     sample_rate: int | None = None
@@ -115,7 +118,7 @@ def make_book_audio(engine: F5 | "Silero", text: str, output: Path, speed: float
         for index, part in enumerate(parts, start=1):
             part_output = Path(folder) / f"part-{index}.wav"
             LOG.info("Rendering part %s/%s (%s characters)", index, len(parts), len(part))
-            rate, _ = engine.make(part, part_output, speed)
+            rate, _ = engine.make(part, part_output, speed, voice)
             wave, actual_rate = sf.read(part_output, dtype="float32")
             if sample_rate is None:
                 sample_rate = actual_rate
@@ -134,7 +137,7 @@ def make_book_audio(engine: F5 | "Silero", text: str, output: Path, speed: float
 class Silero:
     model = None
 
-    def make(self, text: str, output: Path, speed: float) -> tuple[int, float]:
+    def make(self, text: str, output: Path, speed: float, voice: str = "xenia") -> tuple[int, float]:
         if self.model is None:
             path = MODELS / "silero" / "v5_5_ru.pt"
             if not path.exists():
@@ -145,7 +148,7 @@ class Silero:
         rate, pause = 48000, np.zeros(16800, dtype=np.float32)
         chunks = []
         for sentence in [item.strip() for item in re.split(r"(?<=[.!?])\s+", text) if item.strip()]:
-            audio = self.model.apply_tts(text=sentence, speaker="xenia", sample_rate=rate).detach().cpu().numpy().astype(np.float32)
+            audio = self.model.apply_tts(text=sentence, speaker=voice, sample_rate=rate).detach().cpu().numpy().astype(np.float32)
             chunks.extend((audio, pause))
         wave = np.concatenate(chunks[:-1])
         if speed != 1.0:
@@ -173,7 +176,7 @@ def execute(job: dict) -> None:
         output = Path(folder) / f"{job['id']}.wav"
         parts = split_tts_text(accented)
         LOG.info("Rendering %s as %s part(s)", job["id"], len(parts))
-        rate, duration = make_book_audio(engine, accented, output, float(job.get("speed", 1.0)))
+        rate, duration = make_book_audio(engine, accented, output, float(job.get("speed", 1.0)), job.get("voice", "xenia"))
         for attempt in range(3):
             try:
                 # Reopen the WAV for every attempt: a partially sent multipart

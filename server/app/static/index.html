@@ -22,6 +22,7 @@
         <label>Текст<textarea id="text" maxlength="100000" required placeholder="Вставьте текст книги — длинные тексты будут озвучены частями и склеены в один файл."></textarea></label>
         <div class="controls">
           <label>Движок<select id="engine"><option value="f5">F5 Russian v2 · выразительный</option><option value="silero">Silero v5.5 · быстрый CPU</option></select></label>
+          <label>Голос<select id="voice"></select></label>
           <label>Ударения<select id="accent"><option value="auto">Авто · RUAccent</option><option value="manual">Уже размечены +</option></select></label>
           <label>Скорость<select id="speed"><option value="0.7">0.7× · медленнее</option><option value="0.8">0.8×</option><option value="0.9">0.9×</option><option value="1" selected>1.0× · обычно</option><option value="1.1">1.1×</option><option value="1.2">1.2×</option><option value="1.3">1.3× · быстрее</option></select></label>
           <button>Поставить в очередь</button>
@@ -34,6 +35,6 @@
       <div id="jobs"></div>
     </section>
   </main>
-  <script src="/static/app.js?v=chunks-v1"></script>
+  <script src="/static/app.js?v=voices-v1"></script>
 </body>
 </html>
