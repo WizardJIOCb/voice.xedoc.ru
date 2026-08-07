@@ -41,6 +41,11 @@
         <span id="voice-status" class="hint"></span>
       </div>
       <div id="audio-result"></div>
+      <div id="accent-editor" class="accent-editor" hidden>
+        <label>Ударения для повторной версии<textarea id="marked-text" class="draft" spellcheck="false"></textarea></label>
+        <p class="hint">Знак <code>+</code> ставится непосредственно перед ударной гласной: <code>термин+атор</code>, <code>войн+е</code>.</p>
+        <button id="revoice" type="button">Переозвучить с правками</button>
+      </div>
     </section>
   </main>
   <script src="/static/book.js"></script>

@@ -31,6 +31,7 @@ code{color:var(--accent)}
 .text,.accented{white-space:pre-wrap}
 .accented{font-size:.86rem;color:var(--muted)}
 .accent-fix{margin:0 0 12px}
+.accent-editor{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}.accent-editor .draft{min-height:220px}
 .draft{min-height:360px;margin-bottom:16px}.voice-actions label{min-width:180px}.voice-actions select{margin-top:7px}#audio-result{margin-top:16px}
 audio{width:100%}
 .empty{color:var(--muted);text-align:center}

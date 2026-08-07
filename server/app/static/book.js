@@ -4,6 +4,8 @@ const generationStatus = document.querySelector('#generation-status');
 const provider = document.querySelector('#provider');
 const voiceStatus = document.querySelector('#voice-status');
 const audioResult = document.querySelector('#audio-result');
+const accentEditor = document.querySelector('#accent-editor');
+const markedText = document.querySelector('#marked-text');
 
 const brief = () => ({
   premise: document.querySelector('#premise').value.trim(),
@@ -52,6 +54,8 @@ async function poll(jobId) {
   audio.controls = true;
   audio.src = job.audio_url;
   audioResult.replaceChildren(audio);
+  markedText.value = job.accented_text || job.text;
+  accentEditor.hidden = false;
 }
 
 document.querySelector('#voice').addEventListener('click', async () => {
@@ -64,6 +68,26 @@ document.querySelector('#voice').addEventListener('click', async () => {
     const response = await fetch('/api/jobs', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({text, engine: 'f5', accent_mode: 'auto', speed: Number(document.querySelector('#speed').value)})
+    });
+    if (!response.ok) throw new Error((await response.json()).detail || 'Не удалось поставить задание');
+    poll((await response.json()).id);
+  } catch (error) {
+    voiceStatus.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.querySelector('#revoice').addEventListener('click', async () => {
+  const text = markedText.value.trim();
+  if (!text) return;
+  const button = document.querySelector('#revoice');
+  button.disabled = true;
+  voiceStatus.textContent = 'Добавляю исправленную версию в очередь…';
+  try {
+    const response = await fetch('/api/jobs', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text, engine: 'f5', accent_mode: 'manual', speed: Number(document.querySelector('#speed').value)})
     });
     if (!response.ok) throw new Error((await response.json()).detail || 'Не удалось поставить задание');
     poll((await response.json()).id);
