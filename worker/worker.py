@@ -115,7 +115,18 @@ class F5:
         # transcription too. The built-in Xenia reference is already marked.
         if voice != "xenia":
             ref_text = accent.apply(ref_text)
-        wave, rate, _ = self.model.infer(ref_file=str(ref), ref_text=ref_text, gen_text=text, nfe_step=32, cfg_strength=2.0, sway_sampling_coef=-1.0, speed=speed, file_wave=str(output), seed=20260803)
+        # F5's automatic duration estimate is unreliable for very short
+        # Russian phrases and may cut them after the first word.  Reserve a
+        # natural speech duration explicitly; `fix_duration` includes the
+        # reference itself, which F5 removes from the final waveform.
+        reference_seconds = sf.info(ref).duration
+        speech_seconds = max(1.2, len(text.replace("+", "")) / (14.0 * speed))
+        wave, rate, _ = self.model.infer(
+            ref_file=str(ref), ref_text=ref_text, gen_text=text,
+            nfe_step=32, cfg_strength=2.0, sway_sampling_coef=-1.0,
+            speed=speed, fix_duration=reference_seconds + speech_seconds,
+            file_wave=str(output), seed=20260803,
+        )
         return rate, len(np.asarray(wave)) / rate
 
 
