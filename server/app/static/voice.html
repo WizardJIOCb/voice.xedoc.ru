@@ -17,8 +17,8 @@
       <form id="voice-form">
         <label>Название голоса<input name="name" required minlength="2" maxlength="80" placeholder="Например, Родион"></label>
         <div class="recording-card">
-          <div class="head"><h2>Текст для записи</h2><span id="recording-status" class="hint">Запишите 15–40 секунд</span></div>
-          <p id="prompt-text" class="prompt-text">Сегодня я записываю свой голос для озвучки книг. Я говорю спокойно, ясно и естественно, делая короткие паузы между фразами. Вечером рассказчик открыл старую книгу и начал читать первую главу. За окном шёл дождь, а в комнате горел тёплый свет. Эта запись поможет сохранить интонацию, тембр и ритм моей речи.</p>
+          <div class="head"><h2>Текст для записи</h2><span id="recording-status" class="hint">Запишите 7–12 секунд</span></div>
+          <p id="prompt-text" class="prompt-text">Сегодня я записываю свой голос для озвучки. Я говорю спокойно, ясно и естественно. Вечером за окном шёл тихий дождь.</p>
           <div class="actions"><button id="record" type="button">Начать запись</button><button id="stop" class="quiet" type="button" disabled>Остановить</button></div>
           <audio id="recording-preview" controls hidden></audio>
         </div>
@@ -26,10 +26,10 @@
         <label>Или загрузите готовую WAV‑запись<input id="reference-file" name="reference" type="file" accept="audio/wav,.wav"></label>
         <label class="consent"><input name="consent" type="checkbox" required> У меня есть право использовать этот голос и запись.</label>
         <div class="actions"><button type="submit">Создать F5‑голос</button><span id="create-status" class="hint"></span></div>
-        <p class="hint">Записывайте в тихом месте, без музыки и эффектов. Говорите на расстоянии 15–25 см от микрофона: без шёпота, но и без перегруза. Используйте наушники, если рядом играет звук. Можно загрузить WAV до 10 МБ.</p>
+        <p class="hint">Записывайте в тихом месте, без музыки и эффектов. Говорите на расстоянии 15–25 см от микрофона: без шёпота, но и без перегруза. Используйте наушники, если рядом играет звук. Нужна запись от 5 до 12 секунд; можно загрузить WAV до 10 МБ.</p>
       </form>
     </section>
   </main>
-  <script src="/static/voice.js?v=record-v2"></script>
+  <script src="/static/voice.js?v=record-v3"></script>
 </body>
 </html>

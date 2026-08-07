@@ -5,7 +5,7 @@ const recordButton = document.querySelector('#record');
 const stopButton = document.querySelector('#stop');
 const recordingStatus = document.querySelector('#recording-status');
 const preview = document.querySelector('#recording-preview');
-let audioContext, source, processor, silentGain, stream, samples = [], recordingBlob;
+let audioContext, source, processor, silentGain, stream, samples = [], recordingBlob, recordingSeconds = 0;
 
 transcript.value = promptText.textContent.trim();
 
@@ -50,9 +50,10 @@ async function stopRecording() {
   await audioContext.close();
   recordingBlob = wavBlob(mergeSamples(samples), rate);
   const seconds = recordingBlob.size / (rate * 2);
+  recordingSeconds = seconds;
   preview.src = URL.createObjectURL(recordingBlob); preview.hidden = false;
   recordButton.disabled = false; stopButton.disabled = true;
-  recordingStatus.textContent = `Записано: ${seconds.toFixed(1)} с`;
+  recordingStatus.textContent = seconds > 12 ? `Записано ${seconds.toFixed(1)} с — перезапишите короче, нужно до 12 с` : `Записано: ${seconds.toFixed(1)} с`;
 }
 
 recordButton.addEventListener('click', () => startRecording().catch(error => { recordingStatus.textContent = error.message; }));
@@ -65,6 +66,9 @@ form.addEventListener('submit', async event => {
   const data = new FormData(form);
   if (!data.get('reference')?.size && recordingBlob) data.set('reference', recordingBlob, 'my-f5-voice.wav');
   if (!data.get('reference')?.size) { status.textContent = 'Запишите голос или выберите WAV‑файл'; return; }
+  if (recordingBlob && !document.querySelector('#reference-file').files.length && recordingSeconds > 12) {
+    status.textContent = 'Запишите референс короче: от 5 до 12 секунд'; return;
+  }
   button.disabled = true; status.textContent = 'Сохраняю голос…';
   try {
     const response = await fetch('/api/voices', {method: 'POST', body: data});

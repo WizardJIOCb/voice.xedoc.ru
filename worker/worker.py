@@ -119,7 +119,10 @@ class F5:
         # Russian phrases and may cut them after the first word.  Reserve a
         # natural speech duration explicitly; `fix_duration` includes the
         # reference itself, which F5 removes from the final waveform.
-        reference_seconds = sf.info(ref).duration
+        # F5 itself clips a reference at 12 seconds. Use the same ceiling
+        # here so `fix_duration` matches the audio F5 will actually condition
+        # on, rather than a longer original browser recording.
+        reference_seconds = min(sf.info(ref).duration, 12.0)
         speech_seconds = max(1.2, len(text.replace("+", "")) / (14.0 * speed))
         wave, rate, _ = self.model.infer(
             ref_file=str(ref), ref_text=ref_text, gen_text=text,

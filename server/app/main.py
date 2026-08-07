@@ -250,10 +250,10 @@ async def create_voice(
     try:
         with wave.open(io.BytesIO(payload), "rb") as wav:
             duration = wav.getnframes() / wav.getframerate()
-            if wav.getnchannels() not in {1, 2} or not 5 <= duration <= 60:
+            if wav.getnchannels() not in {1, 2} or not 5 <= duration <= 12:
                 raise ValueError
     except (wave.Error, ValueError, ZeroDivisionError):
-        raise HTTPException(422, "Нужен WAV длительностью от 5 до 60 секунд без музыки")
+        raise HTTPException(422, "Нужен WAV длительностью от 5 до 12 секунд без музыки")
     voice_id, created = uuid.uuid4().hex, stamp()
     filename = f"{voice_id}.wav"
     (VOICES / filename).write_bytes(payload)
