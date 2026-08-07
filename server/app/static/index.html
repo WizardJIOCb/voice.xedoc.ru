@@ -19,7 +19,7 @@
     </header>
     <section>
       <form id="form">
-        <label>Текст<textarea id="text" maxlength="6000" required placeholder="Вставьте фрагмент книги…"></textarea></label>
+        <label>Текст<textarea id="text" maxlength="100000" required placeholder="Вставьте текст книги — длинные тексты будут озвучены частями и склеены в один файл."></textarea></label>
         <div class="controls">
           <label>Движок<select id="engine"><option value="f5">F5 Russian v2 · выразительный</option><option value="silero">Silero v5.5 · быстрый CPU</option></select></label>
           <label>Ударения<select id="accent"><option value="auto">Авто · RUAccent</option><option value="manual">Уже размечены +</option></select></label>
@@ -34,6 +34,6 @@
       <div id="jobs"></div>
     </section>
   </main>
-  <script src="/static/app.js?v=error-v1"></script>
+  <script src="/static/app.js?v=chunks-v1"></script>
 </body>
 </html>

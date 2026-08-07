@@ -63,7 +63,8 @@ app.mount("/audio", StaticFiles(directory=AUDIO), name="audio")
 
 
 class JobInput(BaseModel):
-    text: str = Field(min_length=1, max_length=6000)
+    # Long books are split into natural chunks by the local worker before F5.
+    text: str = Field(min_length=1, max_length=100000)
     engine: str = "f5"
     accent_mode: str = "auto"
     speed: float = Field(default=1.0, ge=0.7, le=1.3)
@@ -237,7 +238,7 @@ async def complete(job_id: str, audio: UploadFile = File(...), sample_rate: int 
         if not row:
             path.unlink(missing_ok=True)
             raise HTTPException(404, "Задание не найдено")
-        conn.execute("UPDATE jobs SET status='complete', audio_file=?, sample_rate=?, duration_seconds=?, accented_text=?, error=NULL, updated_at=? WHERE id=?", (path.name, sample_rate, duration_seconds, accented_text[:6000], stamp(), job_id))
+        conn.execute("UPDATE jobs SET status='complete', audio_file=?, sample_rate=?, duration_seconds=?, accented_text=?, error=NULL, updated_at=? WHERE id=?", (path.name, sample_rate, duration_seconds, accented_text[:100000], stamp(), job_id))
         row = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
     return serialize(row)
 

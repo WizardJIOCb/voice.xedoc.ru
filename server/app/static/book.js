@@ -6,7 +6,7 @@ const voiceStatus = document.querySelector('#voice-status');
 const audioResult = document.querySelector('#audio-result');
 const accentEditor = document.querySelector('#accent-editor');
 const markedText = document.querySelector('#marked-text');
-const MAX_TTS_TEXT = 6000;
+const MAX_TTS_TEXT = 100000;
 
 async function apiError(response, fallback) {
   let body;
@@ -101,7 +101,7 @@ document.querySelector('#voice').addEventListener('click', async () => {
   const text = draft.value.trim();
   if (!text) { voiceStatus.textContent = 'Сначала создайте или вставьте текст новеллы'; return; }
   if (text.length > MAX_TTS_TEXT) {
-    voiceStatus.textContent = `Текст слишком длинный: максимум ${MAX_TTS_TEXT.toLocaleString('ru-RU')} символов. Сократите его и попробуйте снова.`;
+    voiceStatus.textContent = `Текст слишком длинный: максимум ${MAX_TTS_TEXT.toLocaleString('ru-RU')} символов.`;
     return;
   }
   const button = document.querySelector('#voice');
@@ -125,7 +125,7 @@ document.querySelector('#revoice').addEventListener('click', async () => {
   const text = markedText.value.trim();
   if (!text) return;
   if (text.length > MAX_TTS_TEXT) {
-    voiceStatus.textContent = `Текст слишком длинный: максимум ${MAX_TTS_TEXT.toLocaleString('ru-RU')} символов. Сократите его и попробуйте снова.`;
+    voiceStatus.textContent = `Текст слишком длинный: максимум ${MAX_TTS_TEXT.toLocaleString('ru-RU')} символов.`;
     return;
   }
   const button = document.querySelector('#revoice');

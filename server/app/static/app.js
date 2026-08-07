@@ -1,7 +1,7 @@
 const jobs = document.querySelector('#jobs');
 const worker = document.querySelector('#worker');
 const form = document.querySelector('#form');
-const MAX_TTS_TEXT = 6000;
+const MAX_TTS_TEXT = 100000;
 
 async function apiError(response, fallback) {
   let body;

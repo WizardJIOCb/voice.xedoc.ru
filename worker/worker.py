@@ -39,6 +39,8 @@ if not TOKEN_FILE.exists():
     raise RuntimeError(f"Missing {TOKEN_FILE}")
 HTTP = requests.Session()
 HTTP.headers["Authorization"] = f"Bearer {TOKEN_FILE.read_text(encoding='utf-8').strip()}"
+MAX_TTS_CHUNK = 4500
+CHUNK_PAUSE_SECONDS = 0.35
 
 
 def request(method: str, path: str, *, timeout: tuple[int, int] = (20, 600), **kwargs) -> requests.Response:
@@ -82,6 +84,53 @@ class F5:
         return rate, len(np.asarray(wave)) / rate
 
 
+def split_tts_text(text: str, limit: int = MAX_TTS_CHUNK) -> list[str]:
+    """Split a book at paragraphs/sentences without cutting a word in half."""
+    remaining = text.strip()
+    chunks: list[str] = []
+    while remaining:
+        if len(remaining) <= limit:
+            chunks.append(remaining)
+            break
+        window = remaining[:limit + 1]
+        boundaries = [match.end() for match in re.finditer(r"(?:[.!?…]+[»”\"']?\s+|\n+)", window)]
+        cut = boundaries[-1] if boundaries else window.rfind(" ")
+        if cut < limit // 3:
+            cut = window.rfind(" ")
+        if cut <= 0:
+            cut = limit
+        chunks.append(remaining[:cut].strip())
+        remaining = remaining[cut:].lstrip()
+    return chunks
+
+
+def make_book_audio(engine: F5 | "Silero", text: str, output: Path, speed: float) -> tuple[int, float]:
+    parts = split_tts_text(text)
+    if len(parts) == 1:
+        return engine.make(parts[0], output, speed)
+
+    waves: list[np.ndarray] = []
+    sample_rate: int | None = None
+    with tempfile.TemporaryDirectory(prefix="voice-parts-") as folder:
+        for index, part in enumerate(parts, start=1):
+            part_output = Path(folder) / f"part-{index}.wav"
+            LOG.info("Rendering part %s/%s (%s characters)", index, len(parts), len(part))
+            rate, _ = engine.make(part, part_output, speed)
+            wave, actual_rate = sf.read(part_output, dtype="float32")
+            if sample_rate is None:
+                sample_rate = actual_rate
+            elif actual_rate != sample_rate or rate != sample_rate:
+                raise RuntimeError("TTS returned audio chunks with different sample rates")
+            waves.append(np.asarray(wave, dtype=np.float32))
+            if index < len(parts):
+                waves.append(np.zeros(round(sample_rate * CHUNK_PAUSE_SECONDS), dtype=np.float32))
+    if sample_rate is None:
+        raise RuntimeError("No audio chunks were rendered")
+    combined = np.concatenate(waves)
+    sf.write(output, combined, sample_rate, subtype="PCM_16")
+    return sample_rate, len(combined) / sample_rate
+
+
 class Silero:
     model = None
 
@@ -122,7 +171,9 @@ def execute(job: dict) -> None:
     engine = f5 if job["engine"] == "f5" else silero
     with tempfile.TemporaryDirectory(prefix="voice-") as folder:
         output = Path(folder) / f"{job['id']}.wav"
-        rate, duration = engine.make(accented, output, float(job.get("speed", 1.0)))
+        parts = split_tts_text(accented)
+        LOG.info("Rendering %s as %s part(s)", job["id"], len(parts))
+        rate, duration = make_book_audio(engine, accented, output, float(job.get("speed", 1.0)))
         for attempt in range(3):
             try:
                 # Reopen the WAV for every attempt: a partially sent multipart
