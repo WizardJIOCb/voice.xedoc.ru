@@ -174,6 +174,13 @@ document.querySelector('#voice-form').addEventListener('submit', async event => 
 });
 
 document.querySelector('#refresh').onclick = refresh;
-loadCustomVoices();
+loadCustomVoices().then(() => {
+  const voice = new URLSearchParams(location.search).get('voice');
+  if (voice && customF5Voices.some(item => item.value === voice)) {
+    document.querySelector('#engine').value = 'f5';
+    syncVoiceOptions();
+    document.querySelector('#voice').value = voice;
+  }
+});
 refresh();
 setInterval(refresh, 5000);

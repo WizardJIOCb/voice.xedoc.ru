@@ -168,6 +168,11 @@ def book() -> FileResponse:
     return FileResponse(ROOT / "static" / "book.html")
 
 
+@app.get("/voice", include_in_schema=False)
+def voice_page() -> FileResponse:
+    return FileResponse(ROOT / "static" / "voice.html")
+
+
 @app.get("/share/{job_id}", include_in_schema=False)
 def share(job_id: str) -> FileResponse:
     return FileResponse(ROOT / "static" / "share.html")

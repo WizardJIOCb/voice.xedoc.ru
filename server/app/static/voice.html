@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Создать голос · Voice</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div><p class="eyebrow">F5 VOICE LAB</p><h1>Создать свой голос</h1><p>Прочитайте текст спокойным естественным голосом — он станет эталоном для F5‑озвучки.</p></div>
+      <a class="quiet link-button" href="/">К озвучке</a>
+    </header>
+    <section>
+      <form id="voice-form">
+        <label>Название голоса<input name="name" required minlength="2" maxlength="80" placeholder="Например, Родион"></label>
+        <div class="recording-card">
+          <div class="head"><h2>Текст для записи</h2><span id="recording-status" class="hint">Запишите 15–40 секунд</span></div>
+          <p id="prompt-text" class="prompt-text">Сегодня я записываю свой голос для озвучки книг. Я говорю спокойно, ясно и естественно, делая короткие паузы между фразами. Вечером рассказчик открыл старую книгу и начал читать первую главу. За окном шёл дождь, а в комнате горел тёплый свет. Эта запись поможет сохранить интонацию, тембр и ритм моей речи.</p>
+          <div class="actions"><button id="record" type="button">Начать запись</button><button id="stop" class="quiet" type="button" disabled>Остановить</button></div>
+          <audio id="recording-preview" controls hidden></audio>
+        </div>
+        <label>Точный текст записи<textarea id="reference-text" name="reference_text" required minlength="10" maxlength="2000"></textarea></label>
+        <label>Или загрузите готовую WAV‑запись<input id="reference-file" name="reference" type="file" accept="audio/wav,.wav"></label>
+        <label class="consent"><input name="consent" type="checkbox" required> У меня есть право использовать этот голос и запись.</label>
+        <div class="actions"><button type="submit">Создать F5‑голос</button><span id="create-status" class="hint"></span></div>
+        <p class="hint">Записывайте в тихом месте, без музыки и эффектов. Используйте наушники, если рядом играет звук. Можно загрузить WAV до 10 МБ.</p>
+      </form>
+    </section>
+  </main>
+  <script src="/static/voice.js?v=record-v1"></script>
+</body>
+</html>

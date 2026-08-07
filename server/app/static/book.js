@@ -185,4 +185,10 @@ async function loadSource() {
 }).catch(() => { provider.textContent = 'Не удалось загрузить исходную версию'; });
 }
 
-loadCustomVoices().then(loadSource).catch(loadSource);
+loadCustomVoices().then(() => {
+  const requestedVoice = new URLSearchParams(location.search).get('voice');
+  if (requestedVoice && [...voiceSelection.options].some(option => option.value === `f5:${requestedVoice}`)) {
+    voiceSelection.value = `f5:${requestedVoice}`;
+  }
+  return loadSource();
+}).catch(loadSource);
