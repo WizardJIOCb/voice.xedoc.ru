@@ -8,6 +8,7 @@ h1{font-size:clamp(2rem,6vw,3.6rem);line-height:1;margin:.2rem 0 .8rem;letter-sp
 .eyebrow-link{display:inline-block;text-decoration:none}.eyebrow-link:hover{text-decoration:underline}
 #worker{height:max-content;padding:9px 13px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.84rem}
 .header-actions,.actions{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+.header-actions{flex-direction:column;align-items:stretch;min-width:380px}.quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.quick-action{min-height:72px;padding:12px 14px;display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;text-decoration:none;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.quick-action:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 10px 28px #0004}.quick-action small,.quick-action b{display:block}.quick-action small{font-size:.62rem;letter-spacing:.09em;color:var(--muted);margin-bottom:3px}.quick-action b{font-size:.92rem}.quick-icon{width:32px;height:32px;display:grid;place-items:center;border-radius:10px;font-size:1.05rem}.quick-action-voice{background:linear-gradient(135deg,#26331b,#1a202b)}.quick-action-voice b{color:var(--accent)}.quick-action-voice .quick-icon{background:var(--accent);color:#172000}.quick-action-book{background:linear-gradient(135deg,#202c43,#1a202b)}.quick-action-book b{color:#b9d2ff}.quick-action-book .quick-icon{background:#314665;color:#d8e6ff}
 .link-button{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 section{padding:24px;margin-bottom:22px;background:#1a202be9;border:1px solid var(--line);border-radius:18px}
 label{display:grid;gap:7px;color:var(--muted);font-size:.86rem}
@@ -40,4 +41,4 @@ code{color:var(--accent)}
 audio{width:100%}
 .empty{color:var(--muted);text-align:center}
 @media(max-width:760px){.controls,.book-grid{grid-template-columns:1fr 1fr}.wide{grid-column:span 2}}
-@media(max-width:650px){main{width:calc(100% - 22px);padding-top:32px}header{display:block}#worker{display:inline-block;margin-top:14px}.controls{grid-template-columns:1fr}}
+@media(max-width:650px){main{width:calc(100% - 22px);padding-top:32px}header{display:block}.header-actions{min-width:0;margin-top:18px}#worker{display:inline-block;margin-top:2px}.controls{grid-template-columns:1fr}.quick-actions{grid-template-columns:1fr}}
