@@ -11,7 +11,6 @@ const VOICES = {
   ]
 };
 let customF5Voices = [];
-let customVoiceRecords = [];
 let moderationEnabled = false;
 
 function voiceLabel(engine, voice) {
@@ -33,46 +32,8 @@ syncVoiceOptions();
 async function loadCustomVoices() {
   const response = await fetch('/api/voices');
   if (!response.ok) return;
-  customVoiceRecords = await response.json();
-  customF5Voices = customVoiceRecords.map(voice => ({value: voice.id, label: `${voice.name} · ваш F5‑голос`}));
+  customF5Voices = (await response.json()).map(voice => ({value: voice.id, label: `${voice.name} · ваш F5‑голос`}));
   syncVoiceOptions();
-  renderVoiceModeration();
-}
-
-function renderVoiceModeration() {
-  const root = document.querySelector('#custom-voices');
-  root.replaceChildren();
-  if (!moderationEnabled || !customVoiceRecords.length) return;
-  const title = document.createElement('p');
-  title.className = 'hint voice-management-title';
-  title.textContent = 'Управление сохранёнными F5-голосами';
-  root.append(title);
-  customVoiceRecords.forEach(voice => {
-    const row = document.createElement('div');
-    row.className = 'voice-management-row';
-    const name = document.createElement('span');
-    name.textContent = voice.name;
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'quiet delete-voice';
-    remove.textContent = 'Удалить голос';
-    remove.addEventListener('click', () => deleteVoice(voice, remove));
-    row.append(name, remove);
-    root.append(row);
-  });
-}
-
-async function deleteVoice(voice, button) {
-  if (!confirm(`Удалить голос «${voice.name}»? Его нельзя будет восстановить.`)) return;
-  button.disabled = true;
-  try {
-    const response = await fetch(`/api/voices/${voice.id}`, {method: 'DELETE'});
-    if (!response.ok) throw new Error(await apiError(response, 'Не удалось удалить голос'));
-    await loadCustomVoices();
-  } catch (error) {
-    alert(error.message);
-    button.disabled = false;
-  }
 }
 
 async function apiError(response, fallback) {
@@ -216,30 +177,6 @@ form.addEventListener('submit', async event => {
   }
 });
 
-document.querySelector('#voice-form').addEventListener('submit', async event => {
-  event.preventDefault();
-  const voiceForm = event.currentTarget;
-  const button = voiceForm.querySelector('button');
-  const status = document.querySelector('#voice-create-status');
-  button.disabled = true;
-  status.textContent = 'Загружаю эталонную запись…';
-  try {
-    const response = await fetch('/api/voices', {method: 'POST', body: new FormData(voiceForm)});
-    if (!response.ok) throw new Error(await apiError(response, 'Не удалось создать голос'));
-    const created = await response.json();
-    voiceForm.reset();
-    await loadCustomVoices();
-    document.querySelector('#engine').value = 'f5';
-    syncVoiceOptions();
-    document.querySelector('#voice').value = created.id;
-    status.textContent = `Голос «${created.name}» готов к озвучке`;
-  } catch (error) {
-    status.textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-});
-
 document.querySelector('#refresh').onclick = refresh;
 loadCustomVoices().then(() => {
   const voice = new URLSearchParams(location.search).get('voice');
@@ -248,8 +185,5 @@ loadCustomVoices().then(() => {
     syncVoiceOptions();
     document.querySelector('#voice').value = voice;
   }
-}).then(initModeration).then(() => {
-  renderVoiceModeration();
-  return refresh();
-}).catch(refresh);
+}).then(initModeration).then(refresh).catch(refresh);
 setInterval(refresh, 5000);

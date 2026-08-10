@@ -6,8 +6,70 @@ const stopButton = document.querySelector('#stop');
 const recordingStatus = document.querySelector('#recording-status');
 const preview = document.querySelector('#recording-preview');
 let audioContext, source, processor, silentGain, stream, samples = [], recordingBlob, recordingSeconds = 0;
+let moderationEnabled = false;
+let customVoiceRecords = [];
 
 transcript.value = promptText.textContent.trim();
+
+async function apiError(response, fallback) {
+  const body = await response.json().catch(() => ({}));
+  return typeof body.detail === 'string' ? body.detail : fallback;
+}
+
+function renderVoiceModeration() {
+  const root = document.querySelector('#custom-voices');
+  root.replaceChildren();
+  if (!moderationEnabled || !customVoiceRecords.length) return;
+  const title = document.createElement('p');
+  title.className = 'hint voice-management-title';
+  title.textContent = 'Управление сохранёнными F5-голосами';
+  root.append(title);
+  customVoiceRecords.forEach(voice => {
+    const row = document.createElement('div');
+    row.className = 'voice-management-row';
+    const name = document.createElement('span');
+    name.textContent = voice.name;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'quiet delete-voice';
+    remove.textContent = 'Удалить голос';
+    remove.addEventListener('click', () => deleteVoice(voice, remove));
+    row.append(name, remove);
+    root.append(row);
+  });
+}
+
+async function loadCustomVoices() {
+  const response = await fetch('/api/voices');
+  if (!response.ok) return;
+  customVoiceRecords = await response.json();
+  renderVoiceModeration();
+}
+
+async function deleteVoice(voice, button) {
+  if (!confirm(`Удалить голос «${voice.name}»? Его нельзя будет восстановить.`)) return;
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/voices/${voice.id}`, {method: 'DELETE'});
+    if (!response.ok) throw new Error(await apiError(response, 'Не удалось удалить голос'));
+    await loadCustomVoices();
+  } catch (error) {
+    alert(error.message);
+    button.disabled = false;
+  }
+}
+
+async function initModeration() {
+  const key = new URLSearchParams(location.hash.slice(1)).get('moderation');
+  if (key) {
+    history.replaceState(null, '', `${location.pathname}${location.search}`);
+    await fetch('/api/moderation/enable', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({key})
+    });
+  }
+  const response = await fetch('/api/moderation/status');
+  moderationEnabled = response.ok && (await response.json()).enabled === true;
+}
 
 function mergeSamples(parts) {
   const length = parts.reduce((total, part) => total + part.length, 0);
@@ -81,3 +143,5 @@ form.addEventListener('submit', async event => {
     button.disabled = false;
   }
 });
+
+initModeration().then(loadCustomVoices);
