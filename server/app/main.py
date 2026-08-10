@@ -5,6 +5,8 @@ import io
 import json
 import shutil
 import sqlite3
+import hashlib
+import hmac
 import urllib.error
 import urllib.request
 import uuid
@@ -22,6 +24,8 @@ ROOT = Path(__file__).resolve().parent
 DATA = Path(os.getenv("VOICE_DATA_DIR", "/app/data"))
 DB, AUDIO, VOICES = DATA / "voice.db", DATA / "audio", DATA / "voices"
 TOKEN = os.getenv("VOICE_WORKER_TOKEN", "")
+MODERATION_KEY = os.getenv("VOICE_MODERATION_KEY", "")
+MODERATION_COOKIE = "voice_moderator"
 ENGINE_VOICES = {"f5": {"xenia"}, "silero": {"aidar", "baya", "kseniya", "eugene", "xenia"}}
 AUDIO.mkdir(parents=True, exist_ok=True)
 
@@ -84,6 +88,10 @@ class JobInput(BaseModel):
 
 class Failure(BaseModel):
     error: str = Field(min_length=1, max_length=2000)
+
+
+class ModerationInput(BaseModel):
+    key: str = Field(min_length=1, max_length=200)
 
 
 class BookBrief(BaseModel):
@@ -158,6 +166,15 @@ def auth(authorization: str | None = Header(default=None)) -> None:
         raise HTTPException(401, "Invalid worker token")
 
 
+def moderator_cookie() -> str:
+    return hashlib.sha256(MODERATION_KEY.encode("utf-8")).hexdigest()
+
+
+def require_moderator(request: Request) -> None:
+    if not MODERATION_KEY or not hmac.compare_digest(request.cookies.get(MODERATION_COOKIE, ""), moderator_cookie()):
+        raise HTTPException(403, "Moderation mode is required")
+
+
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(ROOT / "static" / "index.html")
@@ -193,6 +210,26 @@ def health() -> dict:
     return {"ok": True, "queued": queued, "worker": dict(worker) if worker else None}
 
 
+@app.get("/api/moderation/status")
+def moderation_status(request: Request) -> dict:
+    enabled = bool(MODERATION_KEY) and hmac.compare_digest(request.cookies.get(MODERATION_COOKIE, ""), moderator_cookie())
+    return {"enabled": enabled}
+
+
+@app.post("/api/moderation/enable")
+def enable_moderation(payload: ModerationInput, response: Response) -> dict:
+    if not MODERATION_KEY or not hmac.compare_digest(payload.key, MODERATION_KEY):
+        raise HTTPException(403, "Invalid moderation key")
+    response.set_cookie(MODERATION_COOKIE, moderator_cookie(), max_age=60 * 60 * 24 * 30, httponly=True, secure=True, samesite="strict")
+    return {"enabled": True}
+
+
+@app.post("/api/moderation/disable")
+def disable_moderation(response: Response) -> dict:
+    response.delete_cookie(MODERATION_COOKIE)
+    return {"enabled": False}
+
+
 @app.get("/api/jobs")
 def jobs() -> list[dict]:
     with db() as conn:
@@ -207,6 +244,21 @@ def job(job_id: str) -> dict:
     if not row:
         raise HTTPException(404, "Задание не найдено")
     return serialize(row)
+
+
+@app.delete("/api/jobs/{job_id}", status_code=204)
+def delete_job(job_id: str, request: Request) -> Response:
+    require_moderator(request)
+    with db() as conn:
+        row = conn.execute("SELECT status, audio_file FROM jobs WHERE id=?", (job_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Job not found")
+        if row["status"] == "running":
+            raise HTTPException(409, "A running job cannot be deleted")
+        conn.execute("DELETE FROM jobs WHERE id=?", (job_id,))
+    if row["audio_file"]:
+        (AUDIO / Path(row["audio_file"]).name).unlink(missing_ok=True)
+    return Response(status_code=204)
 
 
 @app.get("/api/voices")

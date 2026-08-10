@@ -11,6 +11,7 @@ const VOICES = {
   ]
 };
 let customF5Voices = [];
+let moderationEnabled = false;
 
 function voiceLabel(engine, voice) {
   return VOICES[engine]?.find(item => item.value === voice)?.label || voice || 'Ксения';
@@ -67,11 +68,12 @@ function card(job) {
   const el = document.createElement('article');
   el.className = 'job';
   const speed = Number(job.speed ?? 1).toFixed(1);
-  el.innerHTML = `<div class="meta"><b class="badge ${job.status}">${job.status}</b><span>${job.engine === 'f5' ? 'F5 Russian v2' : 'Silero v5.5'}</span><span>${job.voice_name || voiceLabel(job.engine, job.voice)}</span><span>${speed}×</span><time>${date(job.created_at)}</time></div><p class="text"></p>${job.accented_text ? '<p class="accented"></p><button class="quiet accent-fix" type="button">Исправить ударения</button>' : ''}${job.audio_url ? `<audio controls preload="none" src="${job.audio_url}"></audio><button class="quiet share" type="button">Поделиться</button>` : ''}${job.error ? '<p class="failed"></p>' : ''}`;
+  el.innerHTML = `<div class="meta"><b class="badge ${job.status}">${job.status}</b><span>${job.engine === 'f5' ? 'F5 Russian v2' : 'Silero v5.5'}</span><span>${job.voice_name || voiceLabel(job.engine, job.voice)}</span><span>${speed}×</span><time>${date(job.created_at)}</time></div><p class="text"></p>${job.accented_text ? '<p class="accented"></p><button class="quiet accent-fix" type="button">Исправить ударения</button>' : ''}${job.audio_url ? `<audio controls preload="none" src="${job.audio_url}"></audio><button class="quiet share" type="button">Поделиться</button>` : ''}${moderationEnabled ? '<button class="quiet delete-job" type="button">Удалить</button>' : ''}${job.error ? '<p class="failed"></p>' : ''}`;
   el.querySelector('.text').textContent = job.text;
   if (job.accented_text) el.querySelector('.accented').textContent = 'Ударения: ' + job.accented_text;
   if (job.error) el.querySelector('.failed').textContent = job.error;
   if (job.audio_url) el.querySelector('.share').addEventListener('click', event => copyShareLink(job, event.currentTarget));
+  if (moderationEnabled) el.querySelector('.delete-job').addEventListener('click', () => deleteJob(job, el));
   if (job.accented_text) el.querySelector('.accent-fix').addEventListener('click', async () => {
     const marked = window.prompt('Поставьте + непосредственно перед ударной гласной. Будет создана новая версия аудио.', job.accented_text);
     if (!marked?.trim()) return;
@@ -90,6 +92,32 @@ function card(job) {
     }
   });
   return el;
+}
+
+async function deleteJob(job, cardElement) {
+  if (!confirm(`Удалить задание от ${date(job.created_at)} и его аудио для всех?`)) return;
+  const button = cardElement.querySelector('.delete-job');
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/jobs/${job.id}`, {method: 'DELETE'});
+    if (!response.ok) throw new Error(await apiError(response, 'Не удалось удалить задание'));
+    await refresh();
+  } catch (error) {
+    alert(error.message);
+    button.disabled = false;
+  }
+}
+
+async function initModeration() {
+  const key = new URLSearchParams(location.hash.slice(1)).get('moderation');
+  if (key) {
+    history.replaceState(null, '', `${location.pathname}${location.search}`);
+    await fetch('/api/moderation/enable', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({key})
+    });
+  }
+  const response = await fetch('/api/moderation/status');
+  moderationEnabled = response.ok && (await response.json()).enabled === true;
 }
 
 function audioIsPlaying() {
@@ -181,6 +209,5 @@ loadCustomVoices().then(() => {
     syncVoiceOptions();
     document.querySelector('#voice').value = voice;
   }
-});
-refresh();
+}).then(initModeration).then(refresh).catch(refresh);
 setInterval(refresh, 5000);
