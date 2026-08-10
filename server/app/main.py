@@ -268,6 +268,21 @@ def voices() -> list[dict]:
     return [dict(row) for row in rows]
 
 
+@app.delete("/api/voices/{voice_id}", status_code=204)
+def delete_voice(voice_id: str, request: Request) -> Response:
+    require_moderator(request)
+    with db() as conn:
+        row = conn.execute("SELECT reference_file FROM voices WHERE id=?", (voice_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "Voice not found")
+        active_jobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE voice=? AND status IN ('queued', 'running')", (voice_id,)).fetchone()[0]
+        if active_jobs:
+            raise HTTPException(409, "Delete queued jobs using this voice first")
+        conn.execute("DELETE FROM voices WHERE id=?", (voice_id,))
+    (VOICES / Path(row["reference_file"]).name).unlink(missing_ok=True)
+    return Response(status_code=204)
+
+
 @app.get("/api/worker/voices/{voice_id}", dependencies=[Depends(auth)])
 def voice(voice_id: str) -> dict:
     with db() as conn:

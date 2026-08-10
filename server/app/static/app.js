@@ -11,6 +11,7 @@ const VOICES = {
   ]
 };
 let customF5Voices = [];
+let customVoiceRecords = [];
 let moderationEnabled = false;
 
 function voiceLabel(engine, voice) {
@@ -32,8 +33,46 @@ syncVoiceOptions();
 async function loadCustomVoices() {
   const response = await fetch('/api/voices');
   if (!response.ok) return;
-  customF5Voices = (await response.json()).map(voice => ({value: voice.id, label: `${voice.name} · ваш F5‑голос`}));
+  customVoiceRecords = await response.json();
+  customF5Voices = customVoiceRecords.map(voice => ({value: voice.id, label: `${voice.name} · ваш F5‑голос`}));
   syncVoiceOptions();
+  renderVoiceModeration();
+}
+
+function renderVoiceModeration() {
+  const root = document.querySelector('#custom-voices');
+  root.replaceChildren();
+  if (!moderationEnabled || !customVoiceRecords.length) return;
+  const title = document.createElement('p');
+  title.className = 'hint voice-management-title';
+  title.textContent = 'Управление сохранёнными F5-голосами';
+  root.append(title);
+  customVoiceRecords.forEach(voice => {
+    const row = document.createElement('div');
+    row.className = 'voice-management-row';
+    const name = document.createElement('span');
+    name.textContent = voice.name;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'quiet delete-voice';
+    remove.textContent = 'Удалить голос';
+    remove.addEventListener('click', () => deleteVoice(voice, remove));
+    row.append(name, remove);
+    root.append(row);
+  });
+}
+
+async function deleteVoice(voice, button) {
+  if (!confirm(`Удалить голос «${voice.name}»? Его нельзя будет восстановить.`)) return;
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/voices/${voice.id}`, {method: 'DELETE'});
+    if (!response.ok) throw new Error(await apiError(response, 'Не удалось удалить голос'));
+    await loadCustomVoices();
+  } catch (error) {
+    alert(error.message);
+    button.disabled = false;
+  }
 }
 
 async function apiError(response, fallback) {
@@ -209,5 +248,8 @@ loadCustomVoices().then(() => {
     syncVoiceOptions();
     document.querySelector('#voice').value = voice;
   }
-}).then(initModeration).then(refresh).catch(refresh);
+}).then(initModeration).then(() => {
+  renderVoiceModeration();
+  return refresh();
+}).catch(refresh);
 setInterval(refresh, 5000);
