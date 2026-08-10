@@ -20,6 +20,9 @@ Worker сам подключается к серверу по HTTPS, поэто�
 .\scripts\start-worker.ps1
 ```
 
+For a regular launch on this computer, double-click `start.bat` in the project
+root. It will prepare the local worker on its first run and then start it.
+
 Секреты worker’а лежат в `.runtime/` и не попадают в Git. Лог:
 `.runtime/worker.log`.
 
@@ -28,4 +31,3 @@ Worker сам подключается к серверу по HTTPS, поэто�
 F5 Russian v2 и русский Silero v5.5, использованные здесь, имеют
 некоммерческие лицензии. Перед коммерческим выпуском аудиокниг нужно получить
 разрешение либо заменить чекпойнты.
-
